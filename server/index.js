@@ -95,6 +95,12 @@ function publicDossier(d) {
   };
 }
 
+const LINK_DAYS = Number(process.env.LINK_TTL_DAYS || 30);
+
+function linkExpired(dossier) {
+  return Date.now() - new Date(dossier.createdAt).getTime() > LINK_DAYS * 864e5;
+}
+
 function baseUrl(req) {
   if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, '');
   const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
@@ -248,6 +254,9 @@ app.get('/api/portal/:token', async (req, res, next) => {
   try {
     const dossier = await store.getByToken(req.params.token);
     if (!dossier) return res.status(404).json({ error: 'Lien invalide ou expiré.' });
+    if (linkExpired(dossier)) {
+      return res.status(410).json({ error: `Ce lien a expiré après ${LINK_DAYS} jours. Demandez-en un nouveau à votre cabinet.` });
+    }
     res.json({ cabinet: CABINET, dossier: publicDossier(dossier), ai: ai.configured() });
   } catch (err) { next(err); }
 });
@@ -256,6 +265,9 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
   try {
     const dossier = await store.getByToken(req.params.token);
     if (!dossier) return res.status(404).json({ error: 'Lien invalide.' });
+    if (linkExpired(dossier)) {
+      return res.status(410).json({ error: `Ce lien a expiré après ${LINK_DAYS} jours. Demandez-en un nouveau à votre cabinet.` });
+    }
     if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
 
     const piece = dossier.pieces.find((p) => p.key === req.params.key);
