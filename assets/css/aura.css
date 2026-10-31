@@ -767,3 +767,22 @@ html.js .reveal.is-in{opacity:1;transform:none}
   *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
   html.js .reveal{opacity:1;transform:none}
 }
+
+/* ================= DÉMONSTRATION VIDÉO ================= */
+.demo__head{max-width:740px;margin-bottom:32px}
+.demo__sub{margin-top:14px;font-size:17px;line-height:1.6;color:var(--slate)}
+.demo__frame{
+  margin:0;border-radius:var(--r-xl);overflow:hidden;
+  background:#0E1224;border:1px solid var(--line);
+  box-shadow:var(--shadow-lg);
+}
+.demo__video{
+  display:block;width:100%;height:auto;aspect-ratio:16/9;background:#0E1224;
+}
+.demo__note{
+  margin-top:14px;font-size:12px;color:#7C849B;letter-spacing:.01em;
+}
+@media (max-width:640px){
+  .demo__frame{border-radius:var(--r)}
+  .demo__sub{font-size:15.5px}
+}
