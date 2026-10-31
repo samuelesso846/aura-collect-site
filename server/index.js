@@ -110,6 +110,14 @@ function sign(value) {
   return crypto.createHmac('sha256', SECRET).update(value).digest('base64url');
 }
 
+/* Adresse publique du site. On la déduit de la requête : une variable
+   d'environnement oubliée ne doit jamais renvoyer le client vers localhost. */
+function baseUrl(req) {
+  const configured = (process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
+  if (configured) return configured;
+  return `${req.protocol}://${req.get('host')}`;
+}
+
 /* Le cookie porte l'échéance ET l'identifiant du cabinet : c'est lui qui délimite
    ce que la session a le droit de voir. */
 function issueSession(cabinetId) {
@@ -390,7 +398,7 @@ app.post('/api/signup', async (req, res, next) => {
     }
 
     const payment = await billing.createPayment({ cabinetId: cabinet.id, plan: planId, months, amount });
-    const base = process.env.PUBLIC_BASE_URL || DEFAULT_BASE;
+    const base = baseUrl(req);
 
     const checkout = await fedapay.createCheckout({
       amount,
@@ -439,7 +447,7 @@ app.post('/api/billing/checkout', requireAuth, async (req, res, next) => {
     if (!email) return res.status(400).json({ error: 'Renseignez l’email de facturation du cabinet avant de souscrire.' });
 
     const payment = await billing.createPayment({ cabinetId: cabinet.id, plan: planId, months, amount });
-    const base = process.env.PUBLIC_BASE_URL || DEFAULT_BASE;
+    const base = baseUrl(req);
 
     const checkout = await fedapay.createCheckout({
       amount,
