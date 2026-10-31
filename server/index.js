@@ -87,6 +87,7 @@ app.post('/api/billing/webhook', express.raw({ type: '*/*', limit: '256kb' }), (
 });
 
 app.use(express.json({ limit: '200kb' }));
+app.use(express.urlencoded({ extended: false, limit: '32kb' }));
 
 /* ---------- session ---------- */
 function sign(value) {
@@ -328,23 +329,35 @@ app.get('/api/billing/plans', (req, res) => {
 /* Création de compte public : le cabinet choisit son offre, paie, puis son espace s'ouvre.
    Aucun accès n'est accordé avant la confirmation du paiement par FedaPay. */
 app.post('/api/signup', async (req, res, next) => {
+  // Deux entrées : le formulaire du site (redirection serveur, insensible aux
+  // blocages de navigation côté navigateur) et l'appel JSON.
+  const isForm = Boolean(req.is('application/x-www-form-urlencoded'));
+  const planWanted = String((req.body && req.body.plan) || 'starter').toLowerCase();
+  const fail = (code, message, status) => {
+    if (isForm) return res.redirect(303, `/commander.html?erreur=${code}&plan=${encodeURIComponent(planWanted)}`);
+    return res.status(status || 400).json({ error: message });
+  };
+
   try {
-    if (!fedapay.configured()) return res.status(503).json({ error: 'Le paiement n’est pas encore configuré.' });
+    if (!fedapay.configured()) {
+      return fail('config', 'Le paiement n’est pas encore configuré.', 503);
+    }
     const ip = req.ip || 'unknown';
-    if (!throttle(ip)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans quelques minutes.' });
+    if (!throttle(ip)) return fail('trop', 'Trop de tentatives. Réessayez dans quelques minutes.', 429);
 
     const name = String(req.body.name || '').trim();
     const email = String(req.body.email || '').trim().toLowerCase();
     const password = String(req.body.password || '');
-    const planId = String(req.body.plan || 'starter').toLowerCase();
+    const planId = planWanted;
     const months = Number(req.body.months || 1);
 
-    if (name.length < 2) return res.status(400).json({ error: 'Indiquez le nom de votre cabinet.' });
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Adresse email invalide.' });
-    if (password.length < 8) return res.status(400).json({ error: 'Mot de passe : 8 caractères minimum.' });
+    if (name.length < 2) return fail('nom', 'Indiquez le nom de votre cabinet.');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail('email', 'Adresse email invalide.');
+    if (password.length < 8) return fail('mdp', 'Mot de passe : 8 caractères minimum.');
 
     const amount = plans.amountFor(planId, months);
-    if (!amount) return res.status(400).json({ error: 'Offre ou durée invalide.' });
+    if (!amount) return fail('offre', 'Offre ou durée invalide.');
+
     let cabinet = await billing.findByEmail(email);
     if (cabinet) {
       // Compte créé mais jamais payé (redirection interrompue, abandon) : on reprend
@@ -352,15 +365,14 @@ app.post('/api/signup', async (req, res, next) => {
       const reprenable = cabinet.plan_status === 'pending_payment'
         && verifyPassword(password, cabinet.password_hash);
       if (!reprenable) {
-        return res.status(409).json({
-          error: 'Un compte existe déjà avec cette adresse. Connectez-vous depuis l’espace cabinet.'
-        });
+        return fail('existe', 'Un compte existe déjà avec cette adresse. Connectez-vous depuis l’espace cabinet.', 409);
       }
     } else {
       cabinet = await billing.createAccount({
         name, email, plan: planId, passwordHash: hashPassword(password)
       });
     }
+
     const payment = await billing.createPayment({ cabinetId: cabinet.id, plan: planId, months, amount });
     const base = process.env.PUBLIC_BASE_URL || DEFAULT_BASE;
 
@@ -373,8 +385,11 @@ app.post('/api/signup', async (req, res, next) => {
     });
     await billing.attachCheckout(payment.id, checkout);
 
+    if (isForm) return res.redirect(303, checkout.url);
     res.json({ url: checkout.url, amount, currency: 'XOF', plan: planId, months });
   } catch (err) {
+    console.error('[signup]', err.message);
+    if (isForm) return res.redirect(303, `/commander.html?erreur=technique&plan=${encodeURIComponent(planWanted)}`);
     next(err);
   }
 });

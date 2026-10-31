@@ -62,7 +62,7 @@
         <h1>Ouvrez votre espace cabinet</h1>
         <p class="sub">Votre espace est isolé : vos dossiers, vos modèles et vos clients ne sont visibles que par votre cabinet.</p>
 
-        <form class="ord__form" id="orderForm" novalidate>
+        <form class="ord__form" id="orderForm" action="/api/signup" method="post">
           <div class="ord__err" id="orderErr"></div>
 
           <div class="field">
@@ -90,11 +90,11 @@
             <label>Durée</label>
             <div class="ord__choice" id="cycleChoice">
               <label class="ord__opt" data-months="1">
-                <input type="radio" name="cycle" value="1" checked>
+                <input type="radio" name="months" value="1" checked>
                 <span><b>Mensuel</b><span>Sans engagement</span></span>
               </label>
               <label class="ord__opt" data-months="12">
-                <input type="radio" name="cycle" value="12">
+                <input type="radio" name="months" value="12">
                 <span><b>Annuel</b><span>Deux mois offerts</span></span>
               </label>
             </div>
@@ -104,10 +104,6 @@
             Payer et ouvrir mon espace
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
           </button>
-
-          <p class="ord__help" id="payFallback" hidden style="color:var(--slate)">
-            La redirection n'a pas démarré ? <a id="payLink" href="#" target="_blank" rel="noopener" style="color:var(--violet);font-weight:600">Ouvrir la page de paiement</a>
-          </p>
 
           <p class="ord__help">
             Vous serez redirigé vers la page de paiement sécurisée FedaPay — carte bancaire ou Mobile Money.
