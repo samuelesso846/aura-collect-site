@@ -175,7 +175,10 @@ function toVerdict(json) {
 async function shrink(buffer) {
   try {
     const sharp = require('sharp');
-    return await sharp(buffer)
+    // failOn 'none' : une photo de téléphone avec des métadonnées douteuses
+    // doit être traitée, pas rejetée. Les fichiers réellement illisibles
+    // échoueront plus loin et la pièce passera en contrôle manuel.
+    return await sharp(buffer, { failOn: 'none' })
       .rotate()
       .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 80 })
