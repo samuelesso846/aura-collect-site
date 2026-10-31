@@ -459,6 +459,21 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || ''))) return res.status(400).json({ error: 'Email invalide.' });
     if (!store.templateById(template)) return res.status(400).json({ error: 'Modèle inconnu.' });
 
+    // Quota de l'offre : un cabinet ne peut pas dépasser ce qu'il paie.
+    const cabinet = await billing.findById(req.cabinetId);
+    if (!cabinet) return res.status(401).json({ error: 'Session invalide.' });
+    const access = billing.accessOf(cabinet);
+    if (access.state === 'suspended') {
+      return res.status(402).json({ error: 'Abonnement inactif. Régularisez votre abonnement pour créer de nouveaux dossiers.', access });
+    }
+    const used = await store.countDossiers(req.cabinetId);
+    if (used >= access.limits.dossiers) {
+      return res.status(402).json({
+        error: `Limite de ${access.limits.dossiers} dossiers atteinte pour l'offre ${access.plan}. Passez à une offre supérieure pour continuer.`,
+        access, used
+      });
+    }
+
     const dossier = store.createDossier({ client, email, template, recipient });
     dossier.cabinetId = req.cabinetId;
     await store.insertDossier(dossier);

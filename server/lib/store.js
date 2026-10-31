@@ -186,6 +186,16 @@ async function listDossiers(cabinetId) {
   return rows.map((r) => mapDossier(r, byDossier.get(r.id) || []));
 }
 
+/* Consommation du mois glissant, base du contrôle de quota par offre. */
+async function countDossiers(cabinetId, days = 30) {
+  const { rows } = await pool.query(
+    `select count(*)::int as n from aura.dossiers
+      where cabinet_id = $1 and created_at > now() - ($2 || ' days')::interval`,
+    [cabinetId, String(days)]
+  );
+  return rows[0].n;
+}
+
 async function getDossier(id, cabinetId) {
   const { rows } = await pool.query(
     'select * from aura.dossiers where id = $1 and cabinet_id = $2',
@@ -303,6 +313,6 @@ async function healthy() {
 module.exports = {
   pool, TEMPLATES, templateById,
   token, slug, statusOf, progressOf, createDossier,
-  listDossiers, getDossier, getByToken, insertDossier,
+  listDossiers, countDossiers, getDossier, getByToken, insertDossier,
   updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy, sealDossier
 };
