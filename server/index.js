@@ -345,13 +345,22 @@ app.post('/api/signup', async (req, res, next) => {
 
     const amount = plans.amountFor(planId, months);
     if (!amount) return res.status(400).json({ error: 'Offre ou durée invalide.' });
-    if (await billing.findByEmail(email)) {
-      return res.status(409).json({ error: 'Un compte existe déjà avec cette adresse. Connectez-vous depuis l’espace cabinet.' });
+    let cabinet = await billing.findByEmail(email);
+    if (cabinet) {
+      // Compte créé mais jamais payé (redirection interrompue, abandon) : on reprend
+      // le paiement au lieu de bloquer l'utilisateur derrière un doublon.
+      const reprenable = cabinet.plan_status === 'pending_payment'
+        && verifyPassword(password, cabinet.password_hash);
+      if (!reprenable) {
+        return res.status(409).json({
+          error: 'Un compte existe déjà avec cette adresse. Connectez-vous depuis l’espace cabinet.'
+        });
+      }
+    } else {
+      cabinet = await billing.createAccount({
+        name, email, plan: planId, passwordHash: hashPassword(password)
+      });
     }
-
-    const cabinet = await billing.createAccount({
-      name, email, plan: planId, passwordHash: hashPassword(password)
-    });
     const payment = await billing.createPayment({ cabinetId: cabinet.id, plan: planId, months, amount });
     const base = process.env.PUBLIC_BASE_URL || DEFAULT_BASE;
 
