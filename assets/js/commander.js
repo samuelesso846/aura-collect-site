@@ -54,10 +54,15 @@ async function submit(event) {
   btn.disabled = true;
   btn.textContent = 'Redirection vers le paiement…';
 
+  // Un appel qui ne répond jamais laisserait le bouton bloqué sans explication.
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 45000);
+
   try {
     const res = await fetch('/api/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: stop.signal,
       body: JSON.stringify({
         name: $('nom').value.trim(),
         email: $('email').value.trim(),
@@ -68,12 +73,24 @@ async function submit(event) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Impossible de créer le compte.');
+
+    // Certains aperçus intégrés bloquent la sortie vers un autre domaine sans
+    // afficher d'erreur : on propose toujours le lien en clair.
+    $('payLink').href = data.url;
+    $('payFallback').hidden = false;
     window.location.href = data.url;
+
+    // Si la navigation est bloquée, le bouton reste utilisable.
+    setTimeout(() => { btn.disabled = false; btn.innerHTML = original; }, 2500);
   } catch (ex) {
     btn.disabled = false;
     btn.innerHTML = original;
-    err.textContent = ex.message;
+    err.textContent = ex.name === 'AbortError'
+      ? 'Le serveur met trop de temps à répondre. Réessayez dans un instant.'
+      : ex.message;
     err.classList.add('is-on');
+  } finally {
+    clearTimeout(timer);
   }
 }
 
