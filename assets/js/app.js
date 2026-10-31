@@ -255,7 +255,11 @@
           '<a class="btn btn--ghost btn--sm" style="border-color:#BBE5CA;color:#0A8F7C" target="_blank" rel="noopener" href="' +
             'https://wa.me/?text=' + encodeURIComponent('Bonjour ' + d.client + ', voici le lien pour déposer vos pièces : ' + d.link) +
           '">Envoyer par WhatsApp</a>' +
-          '<button class="btn btn--ghost btn--sm" id="remindBtn">Relancer</button>' +
+          (d.obstacles.length
+            ? '<a class="btn btn--ghost btn--sm" target="_blank" rel="noopener" href="https://wa.me/?text=' +
+                encodeURIComponent('Bonjour ' + d.client + ', il manque encore ' + d.obstacles.length +
+                  ' pièce(s) pour compléter votre dossier : ' + d.link) + '">Relancer</a>'
+            : '') +
           '<a class="btn btn--ghost btn--sm" href="/api/dossiers/' + d.id + '/export">Télécharger le ZIP</a>' +
         '</div>' +
         '<p class="detail-note">Le ZIP contient les pièces renommées, le sommaire et, si le dossier est scellé, le certificat et le manifeste. Le lien client expire après 30 jours.</p>' +
