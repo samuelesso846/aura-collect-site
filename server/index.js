@@ -345,8 +345,8 @@ app.get('/api/billing/plans', (req, res) => {
 /* Création de compte public : le cabinet choisit son offre, paie, puis son espace s'ouvre.
    Aucun accès n'est accordé avant la confirmation du paiement par FedaPay. */
 app.post('/api/signup', async (req, res, next) => {
-  // Deux entrées : le formulaire du site (redirection serveur, insensible aux
-  // blocages de navigation côté navigateur) et l'appel JSON.
+  // Création d'un espace en essai : aucun paiement demandé, aucune carte.
+  // Le cabinet travaille 7 jours, puis s'abonne depuis son espace s'il est convaincu.
   const isForm = Boolean(req.is('application/x-www-form-urlencoded'));
   const planWanted = String((req.body && req.body.plan) || 'starter').toLowerCase();
   const fail = (code, message, status) => {
@@ -355,9 +355,6 @@ app.post('/api/signup', async (req, res, next) => {
   };
 
   try {
-    if (!fedapay.configured()) {
-      return fail('config', 'Le paiement n’est pas encore configuré.', 503);
-    }
     const ip = req.ip || 'unknown';
     if (!throttle(ip)) return fail('trop', 'Trop de tentatives. Réessayez dans quelques minutes.', 429);
 
@@ -365,44 +362,25 @@ app.post('/api/signup', async (req, res, next) => {
     const email = String(req.body.email || '').trim().toLowerCase();
     const password = String(req.body.password || '');
     const planId = planWanted;
-    const months = Number(req.body.months || 1);
 
     if (name.length < 2) return fail('nom', 'Indiquez le nom de votre cabinet.');
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail('email', 'Adresse email invalide.');
     if (password.length < 8) return fail('mdp', 'Mot de passe : 8 caractères minimum.');
+    if (!plans.get(planId)) return fail('offre', 'Offre invalide.');
 
-    const amount = plans.amountFor(planId, months);
-    if (!amount) return fail('offre', 'Offre ou durée invalide.');
-
-    let cabinet = await billing.findByEmail(email);
-    if (cabinet) {
-      // Compte créé mais jamais payé (redirection interrompue, abandon) : on reprend
-      // le paiement au lieu de bloquer l'utilisateur derrière un doublon.
-      const reprenable = cabinet.plan_status === 'pending_payment'
-        && verifyPassword(password, cabinet.password_hash);
-      if (!reprenable) {
-        return fail('existe', 'Un compte existe déjà avec cette adresse. Connectez-vous depuis l’espace cabinet.', 409);
-      }
-    } else {
-      cabinet = await billing.createAccount({
-        name, email, plan: planId, passwordHash: hashPassword(password)
-      });
+    if (await billing.findByEmail(email)) {
+      return fail('existe', 'Un compte existe déjà avec cette adresse. Connectez-vous depuis l’espace cabinet.', 409);
     }
 
-    const payment = await billing.createPayment({ cabinetId: cabinet.id, plan: planId, months, amount });
-    const base = baseUrl(req);
-
-    const checkout = await fedapay.createCheckout({
-      amount,
-      description: `Aura Collect — ${plans.get(planId).label}, ${months} mois`,
-      customer: { email, firstname: name.slice(0, 40), lastname: 'Aura Collect' },
-      callbackUrl: `${base}/api/billing/callback?p=${payment.id}`,
-      metadata: { payment_id: payment.id, cabinet_id: cabinet.id, plan: planId, months }
+    const cabinet = await billing.createAccount({
+      name, email, plan: planId, passwordHash: hashPassword(password)
     });
-    await billing.attachCheckout(payment.id, checkout);
 
-    if (isForm) return res.redirect(303, checkout.url);
-    res.json({ url: checkout.url, amount, currency: 'XOF', plan: planId, months });
+    // Connecté immédiatement : on ne fait pas ressaisir ce qui vient d'être saisi.
+    setSessionCookie(res, issueSession(cabinet.id));
+
+    if (isForm) return res.redirect(303, '/app?bienvenue=1');
+    res.json({ ok: true, trialDays: billing.TRIAL_DAYS, redirect: '/app?bienvenue=1' });
   } catch (err) {
     console.error('[signup]', err.message);
     if (isForm) return res.redirect(303, `/commander.html?erreur=technique&plan=${encodeURIComponent(planWanted)}`);

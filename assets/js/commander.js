@@ -45,10 +45,11 @@ function renderPlans() {
 
 function refresh() {
   const plan = PLANS.find((p) => p.id === SELECTED);
-  const total = !plan ? 0 : (MONTHS === 12 ? plan.annual : plan.price * MONTHS);
-  $('total').innerHTML = fmt.format(total) + ' <small>FCFA</small>';
+  $('total').innerHTML = '7 jours <small>offerts</small>';
   $('sumPlan').textContent = plan ? plan.label : '—';
-  $('sumCycle').textContent = MONTHS === 12 ? '12 mois (2 offerts)' : '1 mois';
+  $('sumCycle').textContent = plan
+    ? fmt.format(plan.price) + ' FCFA / mois'
+    : '—';
 }
 
 function showError() {

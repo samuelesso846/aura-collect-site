@@ -8,7 +8,7 @@ const store = require('./store');
 const plans = require('./plans');
 
 const GRACE_DAYS = Number(process.env.BILLING_GRACE_DAYS || 7);
-const TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS || 14);
+const TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS || 7);
 
 async function q(text, params) {
   const { rows } = await store.pool.query(text, params);
@@ -47,10 +47,10 @@ async function createAccount({ name, email, passwordHash, plan }) {
   const slug = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'cabinet';
   const rows = await q(
-    `insert into aura.cabinets (name, slug, email, plan, plan_status, password_hash)
-     values ($1, $2, $3, $4, 'pending_payment', $5)
+    `insert into aura.cabinets (name, slug, email, plan, plan_status, password_hash, trial_ends_at)
+     values ($1, $2, $3, $4, 'trialing', $5, now() + ($6 || ' days')::interval)
      returning *`,
-    [name, slug + '-' + Math.random().toString(36).slice(2, 7), email, plan, passwordHash]
+    [name, slug + '-' + Math.random().toString(36).slice(2, 7), email, plan, passwordHash, String(TRIAL_DAYS)]
   );
   return rows[0];
 }

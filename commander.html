@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Créer mon espace — Aura Collect</title>
+<title>Ouvrir mon espace — Aura Collect</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -60,7 +60,7 @@
       <div class="ord__card">
         <span class="eyebrow">Création de compte</span>
         <h1>Ouvrez votre espace cabinet</h1>
-        <p class="sub">Votre espace est isolé : vos dossiers, vos modèles et vos clients ne sont visibles que par votre cabinet.</p>
+        <p class="sub">Sept jours offerts, sans carte bancaire. Votre espace est isolé : vos dossiers et vos clients ne sont visibles que par votre cabinet.</p>
 
         <form class="ord__form" id="orderForm" action="/api/signup" method="post">
           <div class="ord__err" id="orderErr"></div>
@@ -101,13 +101,13 @@
           </div>
 
           <button class="btn btn--primary btn--block" type="submit" id="submitBtn" style="margin-top:18px">
-            Payer et ouvrir mon espace
+            Ouvrir mon espace
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
           </button>
 
           <p class="ord__help">
-            Vous serez redirigé vers la page de paiement sécurisée FedaPay — carte bancaire ou Mobile Money.
-            Aucun prélèvement automatique : chaque période est payée une fois, à votre initiative.
+            Aucune carte demandée à l'inscription. Au bout des sept jours, vous choisissez de vous abonner
+            ou non — sans engagement, sans prélèvement automatique.
           </p>
         </form>
       </div>
@@ -117,11 +117,11 @@
         <div class="ord__total" id="total">—</div>
         <div class="ord__lines">
           <div class="ord__line"><span>Offre</span><b id="sumPlan">—</b></div>
-          <div class="ord__line"><span>Durée</span><b id="sumCycle">1 mois</b></div>
+          <div class="ord__line"><span>Puis</span><b id="sumCycle">—</b></div>
           <div class="ord__line"><span>Devise</span><b>FCFA</b></div>
         </div>
         <p class="ord__note">
-          Le paiement ouvre immédiatement la période choisie. Aucune donnée bancaire n'est stockée par Aura Collect.
+          Sept jours d'essai, puis l'offre choisie si elle vous convient. Aucune donnée bancaire n'est stockée par Aura Collect.
         </p>
       </aside>
 
