@@ -163,8 +163,68 @@
     });
   }
 
+  /* Écran du matin : ce que le client doit faire, et ce qui attend votre décision.
+     Trié du plus ancien au plus récent — le dossier qui dort est celui qui coûte. */
+  function renderTodo() {
+    var wrap = $('#todoWrap');
+    if (!wrap) return;
+
+    var pourClient = state.dossiers
+      .filter(function (d) { return d.status !== 'scelle' && d.obstacles.length; })
+      .sort(function (a, b) { return new Date(a.lastActivity) - new Date(b.lastActivity); });
+
+    var pourMoi = state.dossiers
+      .filter(function (d) { return d.status === 'a_valider'; })
+      .sort(function (a, b) { return new Date(a.lastActivity) - new Date(b.lastActivity); });
+
+    if (!pourClient.length && !pourMoi.length) {
+      wrap.innerHTML = '<div class="todo todo--empty"><b>Tout est à jour.</b> ' +
+        'Aucun dossier en attente de pièce ou de décision.</div>';
+      return;
+    }
+
+    function ligne(d, action) {
+      var manque = action === 'client'
+        ? d.obstacles.slice(0, 3).map(function (p) { return p.label; }).join(', ') +
+          (d.obstacles.length > 3 ? ' +' + (d.obstacles.length - 3) : '')
+        : d.progress.ok + ' pièces reçues, à confirmer';
+      var btn = action === 'client'
+        ? '<a class="btn btn--ghost btn--xs" target="_blank" rel="noopener" href="https://wa.me/?text=' +
+            encodeURIComponent('Bonjour ' + (d.clientName || d.client) + ', il manque ' + d.obstacles.length +
+              ' pièce(s) pour votre dossier : ' + d.link) + '">Relancer</a>'
+        : '<button class="btn btn--primary btn--xs" data-open="' + d.id + '">Trancher</button>';
+      return '<div class="todo__row">' +
+        '<div class="todo__who"><b>' + esc(d.clientName || d.client) + '</b>' +
+          '<span>' + esc(manque) + '</span></div>' +
+        '<div class="todo__age">' + rel(d.lastActivity) + '</div>' +
+        btn +
+      '</div>';
+    }
+
+    var html = '<section class="todo"><div class="todo__head">' +
+      '<h2>À faire maintenant</h2>' +
+      '<span class="todo__sub">' + pourMoi.length + ' à trancher · ' + pourClient.length + ' client(s) à relancer</span>' +
+    '</div><div class="todo__grid">';
+
+    html += '<div class="todo__col"><h3>Le client doit agir <span>' + pourClient.length + '</span></h3>';
+    html += pourClient.length
+      ? pourClient.map(function (d) { return ligne(d, 'client'); }).join('')
+      : '<p class="todo__none">Rien à réclamer.</p>';
+    html += '</div>';
+
+    html += '<div class="todo__col"><h3>Vous devez trancher <span>' + pourMoi.length + '</span></h3>';
+    html += pourMoi.length
+      ? pourMoi.map(function (d) { return ligne(d, 'moi'); }).join('')
+      : '<p class="todo__none">Aucun dossier complet en attente.</p>';
+    html += '</div>';
+
+    html += '</div></section>';
+    wrap.innerHTML = html;
+  }
+
   function render() {
     renderStats();
+    renderTodo();
     renderList();
   }
 
@@ -353,6 +413,13 @@
   }
 
   /* ---------- chargement ---------- */
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest ? ev.target.closest('[data-open]') : null;
+    if (!btn) return;
+    ev.preventDefault();
+    openDrawer(btn.getAttribute('data-open'));
+  });
+
   /* Confirmation d'une pièce par le cabinet : le seul geste qui vaut validation. */
   document.addEventListener('click', async function (ev) {
     var btn = ev.target.closest ? ev.target.closest('[data-confirm]') : null;

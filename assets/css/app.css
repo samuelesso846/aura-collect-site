@@ -125,3 +125,20 @@
 .chip--a_valider{background:#FFF4E5;color:#A5620B}
 .chip--scelle{background:#E9F7EF;color:#0A8F7C}
 .btn--xs{font-size:11.5px;padding:5px 10px;margin-top:6px}
+
+/* --- ce qui manque, chez qui --- */
+.todo{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:20px}
+.todo--empty{font-size:12.5px;color:var(--muted)}
+.todo__head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+.todo__head h2{font-size:14.5px;letter-spacing:-.025em}
+.todo__sub{font-size:11.5px;color:var(--muted);margin-left:auto}
+.todo__grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.todo__col h3{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:650;margin-bottom:6px}
+.todo__col h3 span{color:var(--violet);margin-left:4px}
+.todo__row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.todo__who{flex:1;min-width:0}
+.todo__who b{display:block;font-size:12.5px;color:var(--ink-3);letter-spacing:-.01em}
+.todo__who span{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.todo__age{font-size:11px;color:var(--muted);white-space:nowrap}
+.todo__none{font-size:11.5px;color:var(--muted);padding:10px 0;border-top:1px solid var(--line)}
+@media (max-width:820px){.todo__grid{grid-template-columns:1fr;gap:14px}}
