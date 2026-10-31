@@ -4,6 +4,7 @@ const path = require('path');
 const archiver = require('archiver');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const store = require('./store');
+const seal = require('./seal');
 
 function lastName(client) {
   const parts = String(client).trim().split(/\s+/);
@@ -125,6 +126,12 @@ async function buildZip(res, dossier, tplName) {
 
   const sommaire = await summaryPdf(dossier, tplName);
   archive.append(sommaire, { name: folder + '/sommaire.pdf' });
+
+  if (dossier.sealHash && dossier.sealManifest) {
+    const cert = await seal.certificatePdf(dossier.sealManifest, dossier.sealHash);
+    archive.append(cert, { name: folder + '/certificat.pdf' });
+    archive.append(JSON.stringify(dossier.sealManifest, null, 2), { name: folder + '/manifeste.json' });
+  }
 
   const missing = dossier.pieces.filter((p) => p.status !== 'ok');
   const note = [

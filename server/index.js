@@ -10,6 +10,7 @@ const store = require('./lib/store');
 const ai = require('./lib/ai');
 const mail = require('./lib/mail');
 const archive = require('./lib/archive');
+const seal = require('./lib/seal');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.PORT || 8788);
@@ -115,12 +116,17 @@ function cabinetDossier(d, base) {
     email: d.email,
     template: d.template,
     templateName: store.templateById(d.template).name,
+    recipient: d.recipient || '',
     token: d.token,
     link: (base || DEFAULT_BASE) + '/p/' + d.token,
     createdAt: d.createdAt,
     lastActivity: d.lastActivity,
     status: store.statusOf(d),
     progress: store.progressOf(d),
+    obstacles: d.pieces.filter((p) => p.status !== 'ok').map((p) => ({
+      key: p.key, label: p.label, status: p.status, reason: p.reason || ''
+    })),
+    sealed: d.sealHash ? { hash: d.sealHash, at: d.sealedAt } : null,
     pieces: d.pieces.map((p) => ({
       key: p.key,
       label: p.label,
@@ -203,12 +209,12 @@ app.get('/api/dossiers', requireAuth, async (req, res, next) => {
 
 app.post('/api/dossiers', requireAuth, async (req, res, next) => {
   try {
-    const { client, email, template } = req.body || {};
+    const { client, email, template, recipient } = req.body || {};
     if (!client || String(client).trim().length < 2) return res.status(400).json({ error: 'Nom du client requis.' });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || ''))) return res.status(400).json({ error: 'Email invalide.' });
     if (!store.templateById(template)) return res.status(400).json({ error: 'Modèle inconnu.' });
 
-    const dossier = store.createDossier({ client, email, template });
+    const dossier = store.createDossier({ client, email, template, recipient });
     await store.insertDossier(dossier);
     const base = baseUrl(req);
     const entry = await mail.sendMagicLink(dossier, base);
@@ -236,6 +242,60 @@ app.get('/api/dossiers/:id/export', requireAuth, async (req, res, next) => {
     const dossier = await store.getDossier(req.params.id);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
     await archive.buildZip(res, dossier, store.templateById(dossier.template).name);
+  } catch (err) { next(err); }
+});
+
+app.post('/api/dossiers/:id/seal', requireAuth, async (req, res, next) => {
+  try {
+    const dossier = await store.getDossier(req.params.id);
+    if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
+    if (dossier.sealHash) return res.status(409).json({ error: 'Ce dossier est déjà scellé.' });
+
+    const blocking = dossier.pieces.filter((p) => p.status !== 'ok');
+    if (blocking.length) {
+      return res.status(409).json({
+        error: blocking.length + ' obstacle' + (blocking.length > 1 ? 's' : '') + ' empêche' + (blocking.length > 1 ? 'nt' : '') + ' le scellement.',
+        obstacles: blocking.map((p) => ({ key: p.key, label: p.label, status: p.status, reason: p.reason || '' }))
+      });
+    }
+
+    const manifest = await seal.buildManifest(dossier, CABINET);
+    const hash = seal.hashManifest(manifest);
+    await store.sealDossier(dossier.id, hash, manifest.sealedAt, manifest);
+    res.json({ hash, sealedAt: manifest.sealedAt });
+  } catch (err) { next(err); }
+});
+
+app.get('/api/dossiers/:id/certificate', requireAuth, async (req, res, next) => {
+  try {
+    const dossier = await store.getDossier(req.params.id);
+    if (!dossier || !dossier.sealHash || !dossier.sealManifest) {
+      return res.status(404).json({ error: 'Dossier non scellé.' });
+    }
+    const pdf = await seal.certificatePdf(dossier.sealManifest, dossier.sealHash);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="certificat_${store.slug(dossier.client)}.pdf"`);
+    res.send(pdf);
+  } catch (err) { next(err); }
+});
+
+app.get('/api/dossiers/:id/integrity', requireAuth, async (req, res, next) => {
+  try {
+    const dossier = await store.getDossier(req.params.id);
+    if (!dossier || !dossier.sealHash || !dossier.sealManifest) {
+      return res.status(404).json({ error: 'Dossier non scellé.' });
+    }
+    const manifest = await seal.buildManifest(dossier, CABINET, dossier.sealManifest.sealedAt);
+    const computed = seal.hashManifest(manifest);
+    const ok = computed === dossier.sealHash;
+    const changed = [];
+    if (!ok) {
+      manifest.pieces.forEach((p, i) => {
+        const old = (dossier.sealManifest.pieces || [])[i] || {};
+        if (p.sha256 !== old.sha256) changed.push(p.label);
+      });
+    }
+    res.json({ ok, stored: dossier.sealHash, computed, sealedAt: dossier.sealedAt, changed });
   } catch (err) { next(err); }
 });
 
@@ -267,6 +327,9 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
     if (!dossier) return res.status(404).json({ error: 'Lien invalide.' });
     if (linkExpired(dossier)) {
       return res.status(410).json({ error: `Ce lien a expiré après ${LINK_DAYS} jours. Demandez-en un nouveau à votre cabinet.` });
+    }
+    if (dossier.sealHash) {
+      return res.status(409).json({ error: 'Ce dossier a été scellé : il n\'accepte plus de nouvelle pièce.' });
     }
     if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
 

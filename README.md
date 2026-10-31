@@ -119,6 +119,8 @@ Le mot de passe par défaut est `aura-demo` uniquement si `CABINET_PASSWORD` est
 - **Dépôt client** : upload multipart (JPEG, PNG, WEBP, PDF — 15 Mo max), stockage hors du dossier public, nom de fichier aléatoire.
 - **Validation IA** : appel Groq (modèle vision), sortie JSON stricte (`type_conforme`, `lisible`, `date_document`, `date_valide`, `confiance`, `motif`). Trois états : `ok`, `ko`, `review`. En cas de panne, de doute ou de PDF scanné, la pièce passe en `review` — jamais d'acceptation silencieuse.
 - **Export ZIP** : pièces renommées `Nom_Piece.pdf`, sommaire PDF généré avec `pdf-lib`, fichier `_lisez-moi.txt` si des pièces manquent.
+- **Scellement** : quand toutes les pièces sont validées, le dossier peut être scellé. Un manifeste canonique (pièces, statuts, dates, SHA-256 de chaque fichier) est haché en SHA-256, puis un certificat PDF est généré avec le destinataire, les empreintes et l'empreinte globale. `GET /api/dossiers/:id/integrity` recalcule l'empreinte et signale toute pièce modifiée. Un dossier scellé refuse tout nouveau dépôt.
+- **Destinataire** : champ libre à la création (banque, notaire, usage interne), repris en tête du certificat.
 - **Portail client** : `/p/<token>`, progression, messages de refus rédigés pour le client.
 
 ### Ce qui reste simulé ou incomplet
@@ -139,6 +141,9 @@ Le mot de passe par défaut est `aura-demo` uniquement si `CABINET_PASSWORD` est
 | GET/POST | `/api/dossiers` | cabinet |
 | POST | `/api/dossiers/:id/remind` | cabinet |
 | GET | `/api/dossiers/:id/export` | cabinet |
+| POST | `/api/dossiers/:id/seal` | cabinet |
+| GET | `/api/dossiers/:id/certificate` | cabinet |
+| GET | `/api/dossiers/:id/integrity` | cabinet |
 | GET | `/api/files/:id/:key` | cabinet |
 | GET | `/api/portal/:token` | public (token) |
 | POST | `/api/portal/:token/pieces/:key` | public (token) |

@@ -114,7 +114,7 @@ function progressOf(dossier) {
   return { ok, total: dossier.pieces.length, pct: Math.round((ok / dossier.pieces.length) * 100) };
 }
 
-function createDossier({ client, email, template }) {
+function createDossier({ client, email, template, recipient }) {
   const tpl = templateById(template);
   const now = new Date().toISOString();
   return {
@@ -123,6 +123,7 @@ function createDossier({ client, email, template }) {
     client: String(client).trim(),
     email: String(email).trim(),
     template: tpl.id,
+    recipient: String(recipient || '').trim(),
     createdAt: now,
     lastActivity: now,
     pieces: tpl.pieces.map((p) => ({
@@ -141,6 +142,10 @@ function mapDossier(row, pieces) {
     client: row.client,
     email: row.email,
     template: row.template,
+    recipient: row.recipient || '',
+    sealHash: row.seal_hash || '',
+    sealedAt: row.sealed_at || '',
+    sealManifest: row.seal_manifest || null,
     createdAt: row.created_at,
     lastActivity: row.last_activity,
     pieces: pieces.map((p) => ({
@@ -198,8 +203,8 @@ async function insertDossier(d) {
   try {
     await client.query('begin');
     await client.query(
-      'insert into aura.dossiers (id, token, client, email, template) values ($1,$2,$3,$4,$5)',
-      [d.id, d.token, d.client, d.email, d.template]
+      'insert into aura.dossiers (id, token, client, email, template, recipient) values ($1,$2,$3,$4,$5,$6)',
+      [d.id, d.token, d.client, d.email, d.template, d.recipient || '']
     );
     for (let i = 0; i < d.pieces.length; i++) {
       const p = d.pieces[i];
@@ -264,6 +269,13 @@ async function readFile(dossierId, pieceKey) {
   return rows[0] || null;
 }
 
+async function sealDossier(id, hash, sealedAt, manifest) {
+  await pool.query(
+    'update aura.dossiers set seal_hash = $2, sealed_at = $3, seal_manifest = $4, last_activity = now() where id = $1',
+    [id, hash, sealedAt, manifest]
+  );
+}
+
 async function addOutbox(entry) {
   await pool.query(
     `insert into aura.outbox (id, dossier_id, recipient, subject, body, mode, status, provider_id)
@@ -286,5 +298,5 @@ module.exports = {
   pool, TEMPLATES, templateById,
   token, slug, statusOf, progressOf, createDossier,
   listDossiers, getDossier, getByToken, insertDossier,
-  updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy
+  updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy, sealDossier
 };

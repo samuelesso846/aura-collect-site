@@ -171,10 +171,46 @@
     var d = state.dossiers.filter(function (x) { return x.id === id; })[0];
     if (!d) return;
 
-    $('#drawerName').textContent = d.client;
-    $('#drawerMeta').textContent = d.templateName + ' · ' + d.progress.ok + '/' + d.progress.total + ' validées';
+    var obstacles = d.obstacles || [];
+    var sealed = d.sealed;
 
-    $('#drawerBody').innerHTML =
+    $('#drawerName').textContent = d.client;
+    $('#drawerMeta').textContent = d.templateName + ' · ' + d.progress.ok + '/' + d.progress.total + ' validées' +
+      (d.recipient ? ' · ' + d.recipient : '');
+
+    var verdict = sealed
+      ? '<div class="verdict-box is-ok"><div class="verdict-box__t">Dossier scellé</div><div class="verdict-box__s">Empreinte enregistrée le ' +
+        new Date(sealed.at).toLocaleString('fr-FR') + '. Le dossier n\'accepte plus de pièce.</div></div>'
+      : obstacles.length
+        ? '<div class="verdict-box is-warn"><div class="verdict-box__t">' + obstacles.length + ' obstacle' + (obstacles.length > 1 ? 's' : '') +
+          '</div><div class="verdict-box__s">Le scellement sera possible quand toutes les pièces seront validées.</div></div>'
+        : '<div class="verdict-box is-ok"><div class="verdict-box__t">Prêt à sceller</div><div class="verdict-box__s">Toutes les pièces sont validées.</div></div>';
+
+    var obstacleHtml = obstacles.length
+      ? '<div class="drawer__section"><div class="drawer__label">Obstacles</div>' + obstacles.map(function (o) {
+          return '<div class="obstacle"><span class="obstacle__dot"></span><div>' +
+            '<div class="obstacle__t">' + esc(o.label) + '</div>' +
+            '<div class="obstacle__d">' + esc(o.reason || (o.status === 'wait' ? 'Pièce non déposée.' : 'Pièce à vérifier.')) + '</div>' +
+            '</div></div>';
+        }).join('') + '</div>'
+      : '';
+
+    var sealHtml;
+    if (sealed) {
+      sealHtml = '<div class="drawer__section"><div class="drawer__label">Scellement</div>' +
+        '<div class="seal-hash">' + esc(sealed.hash) + '</div>' +
+        '<div class="detail-actions" style="margin-top:10px">' +
+          '<a class="btn btn--primary btn--sm" href="/api/dossiers/' + d.id + '/certificate">Certificat PDF</a>' +
+          '<button class="btn btn--ghost btn--sm" id="checkIntegrity">Vérifier l\'intégrité</button>' +
+        '</div><div id="integrityOut" class="detail-note"></div></div>';
+    } else {
+      sealHtml = '<div class="drawer__section"><div class="drawer__label">Scellement</div>' +
+        '<p class="detail-note" style="margin-top:0">Calcule une empreinte SHA-256 des pièces et produit un certificat PDF horodaté.</p>' +
+        '<button class="btn btn--primary btn--block btn--sm" id="sealBtn"' +
+        (obstacles.length ? ' disabled style="opacity:.45;cursor:not-allowed"' : '') + '>Sceller le dossier</button></div>';
+    }
+
+    $('#drawerBody').innerHTML = verdict + obstacleHtml +
       '<div class="drawer__section">' +
         '<div class="drawer__label">Lien client</div>' +
         '<div class="link-line"><code>' + esc(d.link) + '</code>' +
@@ -182,14 +218,14 @@
         '<div class="detail-actions" style="margin-top:10px">' +
           '<a class="btn btn--ghost btn--sm" href="' + esc(d.link) + '" target="_blank" rel="noopener">Ouvrir le portail</a>' +
           '<button class="btn btn--ghost btn--sm" id="remindBtn">Relancer</button>' +
-          '<a class="btn btn--primary btn--sm" href="/api/dossiers/' + d.id + '/export">Télécharger le ZIP</a>' +
+          '<a class="btn btn--ghost btn--sm" href="/api/dossiers/' + d.id + '/export">Télécharger le ZIP</a>' +
         '</div>' +
-        '<p class="detail-note">Le ZIP contient les pièces renommées et un sommaire PDF. Le lien client expire après 30 jours.</p>' +
+        '<p class="detail-note">Le ZIP contient les pièces renommées, le sommaire et, si le dossier est scellé, le certificat et le manifeste. Le lien client expire après 30 jours.</p>' +
       '</div>' +
       '<div class="drawer__section">' +
         '<div class="drawer__label">Pièces du dossier</div>' +
         d.pieces.map(function (p) { return pieceRow(d, p); }).join('') +
-      '</div>';
+      '</div>' + sealHtml;
 
     $('#copyLink').addEventListener('click', function () {
       if (navigator.clipboard) navigator.clipboard.writeText(d.link).then(function () { toast('Lien copié'); });
@@ -202,6 +238,39 @@
         toast(r.mail.mode === 'resend' ? 'Relance envoyée' : 'Relance journalisée (email non configuré)');
       } catch (e) { toast(e.message, true); }
     });
+
+    var sealBtn = $('#sealBtn');
+    if (sealBtn) {
+      sealBtn.addEventListener('click', async function () {
+        sealBtn.disabled = true;
+        sealBtn.textContent = 'Scellement…';
+        try {
+          await api('/api/dossiers/' + d.id + '/seal', { method: 'POST' });
+          toast('Dossier scellé — certificat disponible');
+          await load();
+          openDrawer(d.id);
+        } catch (e) {
+          toast(e.message, true);
+          sealBtn.disabled = false;
+          sealBtn.textContent = 'Sceller le dossier';
+        }
+      });
+    }
+
+    var check = $('#checkIntegrity');
+    if (check) {
+      check.addEventListener('click', async function () {
+        var out = $('#integrityOut');
+        out.textContent = 'Vérification en cours…';
+        try {
+          var r = await api('/api/dossiers/' + d.id + '/integrity');
+          out.innerHTML = r.ok
+            ? '<span style="color:var(--green);font-weight:600">Intègre — empreinte recalculée identique.</span>'
+            : '<span style="color:#C4304A;font-weight:600">Altéré — ' +
+              (r.changed.length ? 'pièces modifiées : ' + esc(r.changed.join(', ')) : 'le manifeste ne correspond plus.') + '</span>';
+        } catch (e) { out.textContent = e.message; }
+      });
+    }
 
     $('#drawer').classList.add('is-open');
     $('#drawerOverlay').classList.add('is-open');
@@ -338,7 +407,8 @@
         body: {
           client: $('#clientName').value.trim(),
           email: $('#clientEmail').value.trim(),
-          template: $('#clientTpl').value
+          template: $('#clientTpl').value,
+          recipient: $('#clientRecipient').value.trim()
         }
       });
 
