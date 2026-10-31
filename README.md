@@ -1,5 +1,7 @@
 # Aura Collect — site d'entreprise + démo produit
 
+**En ligne :** https://samuelesso846.github.io/aura-collect-site/
+
 Site vitrine statique (HTML/CSS/JS, sans build) pour **Aura Collect**, la collecte de pièces justificatives avec validation IA.
 Il inclut une **démo fonctionnelle** du parcours cabinet → client, utilisable en rendez-vous commercial.
 
@@ -32,7 +34,10 @@ python3 -m http.server 8080
 
 ## 3. Déployer en ligne
 
-Le site ne contient aucune dépendance de build : déposez le dossier tel quel.
+**Déjà publié sur GitHub Pages** depuis la branche `main` de `samuelesso846/aura-collect-site`.
+Chaque `git push` sur `main` republie le site en une minute environ.
+
+Autres options — le site ne contient aucune dépendance de build : déposez le dossier tel quel.
 
 - **Netlify** : app.netlify.com/drop → glisser le dossier. Domaine personnalisé dans *Domain settings*.
 - **Vercel** : `vercel deploy --prod` depuis le dossier (framework : *Other*, aucune commande de build).
