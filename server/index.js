@@ -54,8 +54,24 @@ app.post('/api/billing/webhook', express.raw({ type: '*/*', limit: '256kb' }), (
   res.json({ received: true });
 
   const name = event.name || event.type || '';
-  const object = event.object || event.data || {};
-  const txId = object.id || event.object_id || null;
+
+  // FedaPay n'a pas toujours la même enveloppe selon la version de l'événement :
+  // l'identifiant de transaction peut se trouver à plusieurs endroits.
+  const candidates = [
+    event.object && event.object.id,
+    event.data && event.data.object && event.data.object.id,
+    event.data && event.data.id,
+    event.object_id,
+    event.entity && event.entity.id,
+    event.transaction && event.transaction.id
+  ];
+  const txId = candidates
+    .map((v) => (v === undefined || v === null || String(v).trim() === '' ? null : Number(v)))
+    .find((v) => v !== null && !Number.isNaN(v)) || null;
+
+  if (!txId) {
+    console.warn('[billing] webhook sans identifiant exploitable :', JSON.stringify(event).slice(0, 900));
+  }
 
   setImmediate(async () => {
     try {
