@@ -1,0 +1,91 @@
+# Aura Collect — site d'entreprise + démo produit
+
+Site vitrine statique (HTML/CSS/JS, sans build) pour **Aura Collect**, la collecte de pièces justificatives avec validation IA.
+Il inclut une **démo fonctionnelle** du parcours cabinet → client, utilisable en rendez-vous commercial.
+
+## 1. Ce qui est livré
+
+| Fichier | Rôle |
+|---|---|
+| `index.html` | Page d'accueil : promesse, coût du problème, 3 piliers, parcours, validation IA, modèles, tarifs, FAQ |
+| `tarifs.html` | Offres détaillées, tableau comparatif, calculateur de ROI interactif |
+| `contact.html` | Demande de démo (formulaire sans backend : prépare un email) |
+| `demo.html` | Tableau de bord cabinet : création de dossier, pipeline, fiche dossier, aperçu d'export |
+| `portail.html` | Portail client mobile : dépôt de pièces, verdict IA simulé, progression |
+| `legal.html` | Mentions légales, RGPD, sous-traitants (champs à compléter) |
+| `assets/css/aura.css` | Design system complet (couleurs, composants, responsive) |
+| `assets/js/store.js` | État partagé de la démo (localStorage) + modèles de pièces |
+| `assets/js/dashboard.js` | Logique du tableau de bord |
+| `assets/js/portal.js` | Logique du portail client et de la validation simulée |
+| `assets/js/site.js` | Navigation, menu mobile, bascule tarifaire, animations |
+| `assets/js/contact.js` | Validation du formulaire et préparation de l'email |
+
+## 2. Lancer en local
+
+Un simple serveur statique suffit (les liens `?d=token` et localStorage ne fonctionnent pas en `file://`) :
+
+```bash
+cd aura-collect-site
+python3 -m http.server 8080
+# → http://localhost:8080
+```
+
+## 3. Déployer en ligne
+
+Le site ne contient aucune dépendance de build : déposez le dossier tel quel.
+
+- **Netlify** : app.netlify.com/drop → glisser le dossier. Domaine personnalisé dans *Domain settings*.
+- **Vercel** : `vercel deploy --prod` depuis le dossier (framework : *Other*, aucune commande de build).
+- **Cloudflare Pages** : *Upload assets* → glisser le dossier.
+- **Hébergement classique** (o2switch, Ionos…) : upload FTP dans `public_html`.
+
+À brancher ensuite : domaine `auracollect.fr`, email `bonjour@auracollect.fr`, HTTPS (automatique chez les hébergeurs ci-dessus).
+
+## 4. Ce qui est réel, ce qui est simulé
+
+**Réel :** navigation, responsive, tarifs et bascule mensuel/annuel, calculateur de ROI, création de dossier, génération du lien client, pipeline, progression, export du manifeste, persistance dans le navigateur, partage d'état entre l'onglet cabinet et l'onglet client.
+
+**Simulé (démo uniquement, sans backend) :**
+- la validation IA : elle lit le **nom du fichier**. `flou` → refus de lisibilité, `expire` → refus de validité, `facture` → mauvais type ; sinon accepté ;
+- l'envoi d'emails : le bouton « Renvoyer le lien » affiche une confirmation, aucun email n'est parti ;
+- l'export ZIP : l'arborescence et le renommage sont réels, le fichier téléchargé est un **manifeste `.txt`** (aucun document n'est stocké) ;
+- les données : 6 dossiers fictifs, stockés dans le `localStorage` du visiteur, jamais transmis.
+
+Rien de tout cela n'est présenté comme une fonctionnalité active dans les textes du site : la démo affiche un bandeau explicite.
+
+## 5. Brancher le vrai produit
+
+L'ordre de mise en œuvre qui va le plus vite :
+
+1. **Stockage & base** — Firebase (Firestore + Storage, région `europe-west1`) ou Supabase. Collections : `dossiers`, `pieces`, `evenements`.
+2. **Upload** — endpoint serveur qui reçoit le fichier, vérifie la taille et le type MIME, stocke hors URL publique, renvoie un identifiant.
+3. **Validation IA** — appel multimodal (Gemini Vision ou équivalent) avec un prompt par type de pièce, sortie JSON stricte :
+   `{ type_conforme, lisible, date_detectee, date_valide, motif }`. Trois états : `validé` / `rejeté` / `à confirmer`.
+4. **Emails** — Resend ou Postmark : lien magique (token signé, expiration 30 jours), relance J+2 puis J+5, notification cabinet à 100 %.
+5. **Export** — `pdf-lib` + `jszip` côté serveur : renommage `Nom_Piece.pdf`, sommaire PDF, archive signée.
+6. **Sécurité** — liens signés à durée courte, séparation par cabinet, journal des décisions, hébergement UE, accord de sous-traitance.
+
+Variables d'environnement typiques : `GEMINI_API_KEY`, `FIREBASE_PROJECT_ID`, `RESEND_API_KEY`, `APP_URL`, `SIGNING_SECRET`.
+
+## 6. Personnaliser
+
+- **Couleurs / typo** : variables CSS en tête de `assets/css/aura.css` (`--violet`, `--ink`, `--radius`…).
+- **Prix** : attributs `data-monthly` / `data-yearly` dans `index.html` et `tarifs.html` (le calcul −20 % est déjà appliqué aux valeurs annuelles).
+- **Adresse de contact** : `DEST` dans `assets/js/contact.js` et les liens `mailto:` des pages.
+- **Modèles de pièces** : tableau `TEMPLATES` dans `assets/js/store.js` (libellé, règle de validité, clé de nommage).
+- **Textes** : tout est en français dans le HTML, aucun contenu généré au chargement.
+
+## 7. Avant la mise en ligne
+
+- [ ] Remplir les champs surlignés de `legal.html` (raison sociale, SIREN, hébergeur, sous-traitants).
+- [ ] Remplacer `bonjour@auracollect.fr` par l'adresse réelle et configurer SPF/DKIM/DMARC.
+- [ ] Ajouter une image Open Graph (`og:image`) pour les partages LinkedIn.
+- [ ] Brancher le formulaire de contact sur un vrai endpoint (Formspree, Resend, Make) ou une boîte email dédiée.
+- [ ] Installer une mesure d'audience sans cookie (Plausible, Umami) si nécessaire.
+- [ ] Tester sur un iPhone réel : prise de photo, PDF, retour arrière, lien expiré.
+
+## 8. Limites connues
+
+- Pas de backend : la démo ne conserve rien après effacement du stockage navigateur.
+- Le portail client est un écran de démonstration ; un vrai lien expirant et un contrôle d'accès serveur restent à implémenter.
+- Les tarifs, mentions et chiffres d'architecture sont des propositions commerciales à valider avant publication.

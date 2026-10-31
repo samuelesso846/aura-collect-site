@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Démo — Tableau de bord | Aura Collect</title>
+<meta name="description" content="Démo interactive du tableau de bord Aura Collect : créez une demande, suivez le pipeline des dossiers, ouvrez le portail client et prévisualisez l'export ZIP.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aura.css">
+</head>
+<body>
+
+<div class="app">
+  <aside class="side">
+    <a class="side__brand brand" href="index.html" style="font-size:15px">
+      <span class="brand__mark" style="width:28px;height:28px;flex:0 0 28px;font-size:13px">A</span>
+      <span>Aura Collect</span>
+    </a>
+    <div class="side__ws">
+      <div class="side__ws-av">CL</div>
+      <div>
+        <div class="side__ws-name">Cabinet Lemaire</div>
+        <div class="side__ws-plan">Plan Pro</div>
+      </div>
+    </div>
+    <nav class="side__nav">
+      <a class="side__link is-active" href="demo.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dossiers
+      </a>
+      <a class="side__link" href="#modeles-demo" data-soon>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 012-2h9l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M8 13h8M8 17h5"/></svg>
+        Modèles
+      </a>
+      <a class="side__link" href="#" data-soon>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-5.6 6.5-5.6s6.5 2 6.5 5.6"/><path d="M17 8.5h5M19.5 6v5"/></svg>
+        Clients
+      </a>
+      <div class="side__sep"></div>
+      <a class="side__link" href="#" data-soon>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H10a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V10a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+        Réglages
+      </a>
+    </nav>
+    <div class="side__foot">
+      <div class="side__hint"><b>Démo.</b> Données fictives, stockées dans votre navigateur. Rien n'est envoyé à un serveur.</div>
+      <a class="btn btn--ghost btn--sm" href="index.html" style="width:100%">← Retour au site</a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <a class="topbar__back" href="index.html" aria-label="Retour au site">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H6M12 19l-7-7 7-7"/></svg>
+      </a>
+      <div>
+        <h1>Dossiers</h1>
+        <div class="topbar__sub" id="topbarSub">Cabinet Lemaire &amp; Associés</div>
+      </div>
+      <div class="topbar__actions">
+        <div class="field" style="margin:0;display:none" id="searchWrap">
+          <input id="search" type="search" placeholder="Rechercher un client…" style="width:210px;height:36px;font-size:12.5px">
+        </div>
+        <button class="btn btn--primary btn--sm" id="newBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Nouvelle demande
+        </button>
+      </div>
+    </div>
+
+    <div class="app-body">
+      <div class="demo-flag">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
+        <span><b>Démo interactive.</b> Créez un dossier, ouvrez son lien client et déposez un document : les deux écrans partagent le même état. <a href="#" id="resetBtn" style="text-decoration:underline;color:inherit">Réinitialiser les données</a></span>
+      </div>
+
+      <div class="kpis" id="kpis"></div>
+      <div class="board" id="board"></div>
+
+      <section id="modeles-demo" style="margin-top:34px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:12px">
+          <div>
+            <h2 style="font-size:15px;letter-spacing:-.02em">Créer depuis un modèle</h2>
+            <p style="font-size:11.5px;color:var(--muted);margin-top:3px">Chaque modèle embarque la liste des pièces, leurs règles de validité et le nommage à l'export.</p>
+          </div>
+        </div>
+        <div id="tplStrip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- modale nouvelle demande -->
+<div class="overlay" id="modalNew">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalNewTitle">
+    <div class="modal__head">
+      <div>
+        <h2 id="modalNewTitle">Nouvelle demande</h2>
+        <p>Le client reçoit un lien. Aucun compte à créer.</p>
+      </div>
+      <button class="modal__x" data-close aria-label="Fermer">✕</button>
+    </div>
+    <div class="modal__body" id="modalNewBody">
+      <form id="formNew">
+        <div class="field">
+          <label for="clientName">Nom du client</label>
+          <input id="clientName" type="text" placeholder="Camille Lemaire" required>
+        </div>
+        <div class="field">
+          <label for="clientEmail">Email du client</label>
+          <input id="clientEmail" type="email" placeholder="camille@email.fr" required>
+        </div>
+        <div class="field">
+          <label for="clientTpl">Modèle de pièces</label>
+          <select id="clientTpl"></select>
+          <div class="field__hint" id="tplHint"></div>
+        </div>
+        <button class="btn btn--primary btn--block" type="submit" style="margin-top:6px">Créer et générer le lien</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- tiroir dossier -->
+<div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Détail du dossier">
+  <div class="drawer__head">
+    <div>
+      <h2 id="drawerName">Dossier</h2>
+      <p id="drawerMeta"></p>
+    </div>
+    <button class="modal__x" data-close-drawer aria-label="Fermer" style="margin-left:auto">✕</button>
+  </div>
+  <div class="drawer__body" id="drawerBody"></div>
+</div>
+<div class="overlay" id="drawerOverlay" style="z-index:105"></div>
+
+<script src="assets/js/store.js"></script>
+<script src="assets/js/dashboard.js"></script>
+</body>
+</html>

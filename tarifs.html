@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tarifs — Aura Collect</title>
+<meta name="description" content="Trois offres simples : Starter 79 €, Pro 149 €, Cabinet 249 € par mois. Sans engagement. Calculez le temps que vous récupérez.">
+<meta name="theme-color" content="#F7F8FC">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aura.css">
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="container nav__inner">
+    <a class="brand" href="index.html">
+      <span class="brand__mark">A</span>
+      <span>Aura Collect<small>Pièces justificatives</small></span>
+    </a>
+    <nav class="nav__links">
+      <a href="index.html#produit">Produit</a>
+      <a href="index.html#validation">Validation IA</a>
+      <a href="index.html#modeles">Modèles</a>
+      <a href="tarifs.html" style="color:var(--violet)">Tarifs</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <div class="nav__cta">
+      <a class="btn btn--ghost btn--sm" href="demo.html">Voir la démo</a>
+      <a class="btn btn--primary btn--sm" href="contact.html">Demander une démo</a>
+      <button class="nav__burger" id="burger" aria-label="Ouvrir le menu" aria-expanded="false"><span></span></button>
+    </div>
+  </div>
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="index.html#produit">Produit</a>
+    <a href="index.html#validation">Validation IA</a>
+    <a href="index.html#modeles">Modèles</a>
+    <a href="tarifs.html">Tarifs</a>
+    <a href="contact.html">Contact</a>
+    <a class="btn btn--primary" href="demo.html">Tester la démo</a>
+  </div>
+</header>
+
+<main>
+<section class="page-hero">
+  <div class="page-hero__mesh" aria-hidden="true"></div>
+  <div class="container">
+    <span class="eyebrow">Tarifs</span>
+    <h1>Le prix d'une heure de relance, <em>par mois</em>.</h1>
+    <p class="lede">Une offre qui démarre à 79 € — moins qu'une heure de votre temps facturé. Sans engagement, sans frais de mise en service, premier dossier offert.</p>
+  </div>
+</section>
+
+<section class="section" style="padding-top:26px">
+  <div class="container">
+    <div class="center">
+      <div class="switch" id="billingSwitch" style="margin-top:0">
+        <button class="is-active" data-billing="monthly">Mensuel</button>
+        <button data-billing="yearly">Annuel <small>−20 %</small></button>
+      </div>
+    </div>
+
+    <div class="plans" style="text-align:left">
+      <div class="plan">
+        <div class="plan__name">Starter</div>
+        <div class="plan__desc">Pour valider le flux sur vos premiers dossiers, sans risque.</div>
+        <div class="plan__price"><span class="plan__amount" data-monthly="79" data-yearly="63">79 €</span><span class="plan__period">/ mois</span></div>
+        <div class="plan__note" data-note></div>
+        <ul class="plan__list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>25 dossiers actifs par mois</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>3 modèles de pièces</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Portail client &amp; lien magique</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Export ZIP renommé</li>
+          <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Relances automatiques</li>
+        </ul>
+        <a class="btn btn--ghost btn--block" href="contact.html?offre=starter">Commencer</a>
+      </div>
+
+      <div class="plan plan--featured">
+        <span class="plan__tag">Le plus choisi</span>
+        <div class="plan__name">Pro</div>
+        <div class="plan__desc">Le quotidien d'un cabinet : volume, relances, validation IA.</div>
+        <div class="plan__price"><span class="plan__amount" data-monthly="149" data-yearly="119">149 €</span><span class="plan__period">/ mois</span></div>
+        <div class="plan__note" data-note></div>
+        <ul class="plan__list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Dossiers illimités</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Modèles illimités + sur-mesure</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Validation IA instantanée</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Relances automatiques par email</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Export ZIP + sommaire PDF</li>
+        </ul>
+        <a class="btn btn--primary btn--block" href="contact.html?offre=pro">Choisir Pro</a>
+      </div>
+
+      <div class="plan">
+        <div class="plan__name">Cabinet</div>
+        <div class="plan__desc">Plusieurs collaborateurs, votre marque, vos modèles.</div>
+        <div class="plan__price"><span class="plan__amount" data-monthly="249" data-yearly="199">249 €</span><span class="plan__period">/ mois</span></div>
+        <div class="plan__note" data-note></div>
+        <ul class="plan__list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Tout le plan Pro</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Utilisateurs illimités</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Logo, couleurs et domaine du cabinet</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Installation de vos modèles incluse</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Accompagnement dédié</li>
+        </ul>
+        <a class="btn btn--ghost btn--block" href="contact.html?offre=cabinet">Nous parler</a>
+      </div>
+    </div>
+    <div class="pricing__foot">
+      <span>Prix hors taxes</span>
+      <span>Sans engagement</span>
+      <span>Premier dossier offert</span>
+      <span>Paiement par carte ou virement</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ROI ================= -->
+<section class="section section--paper" style="padding-top:70px">
+  <div class="container">
+    <div style="max-width:600px">
+      <span class="eyebrow">Retour sur investissement</span>
+      <h2 class="title" style="font-size:clamp(28px,3.4vw,40px)">Combien d'heures <em>récupérez-vous</em> ?</h2>
+      <p class="lede" style="font-size:16px">Déplacez les curseurs. Le calcul repose sur une hypothèse simple : trois relances par dossier incomplet, douze minutes par relance.</p>
+    </div>
+
+    <div class="roi">
+      <div class="roi__grid">
+        <div>
+          <div class="field" style="margin-bottom:22px">
+            <label for="roiDossiers">Dossiers ouverts par mois — <span class="roi__val" id="roiDossiersVal">40</span></label>
+            <input type="range" id="roiDossiers" min="10" max="200" step="5" value="40">
+          </div>
+          <div class="field" style="margin-bottom:22px">
+            <label for="roiTaux">Valeur d'une heure de votre équipe — <span class="roi__val" id="roiTauxVal">45 €</span></label>
+            <input type="range" id="roiTaux" min="20" max="120" step="5" value="45">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="roiOffre">Offre envisagée</label>
+            <select id="roiOffre">
+              <option value="79">Starter — 79 € / mois</option>
+              <option value="149" selected>Pro — 149 € / mois</option>
+              <option value="249">Cabinet — 249 € / mois</option>
+            </select>
+          </div>
+        </div>
+        <div class="roi__out">
+          <div class="roi__out-l">Temps récupéré</div>
+          <div class="roi__out-n"><span id="roiHeures">24</span><span> h / mois</span></div>
+          <div class="roi__out-s" id="roiGain">Soit 1 080 € de temps, pour 149 € d'abonnement. Gain net : 931 € par mois.</div>
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.15);font-size:11px;color:#A9B0C6;line-height:1.5">
+            Hypothèse : 3 relances par dossier, 12 min par relance. Ajustez selon vos volumes réels.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= COMPARE ================= -->
+<section class="section">
+  <div class="container">
+    <div class="center">
+      <span class="eyebrow eyebrow--center">Détail</span>
+      <h2 class="title">Ce qui change entre les offres.</h2>
+    </div>
+
+    <p class="compare-hint">Faites défiler le tableau pour comparer les trois offres →</p>
+    <div style="overflow-x:auto">
+      <table class="compare">
+        <thead>
+          <tr>
+            <th>Fonctionnalité</th>
+            <th>Starter</th>
+            <th>Pro</th>
+            <th>Cabinet</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="row-group"><td colspan="4">Collecte</td></tr>
+          <tr><td>Dossiers actifs</td><td>25 / mois</td><td>Illimités</td><td>Illimités</td></tr>
+          <tr><td>Portail client sans compte</td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td></tr>
+          <tr><td>Prise de photo depuis le téléphone</td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td></tr>
+          <tr><td>Relances automatiques</td><td><svg class="no" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td></tr>
+
+          <tr class="row-group"><td colspan="4">Validation</td></tr>
+          <tr><td>Vérification de conformité</td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td></tr>
+          <tr><td>Contrôle de lisibilité et de cadrage</td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td></tr>
+          <tr><td>Règles de validité personnalisées par pièce</td><td>3 modèles</td><td>Illimité</td><td>Illimité</td></tr>
+          <tr><td>Revue humaine d'un verdict</td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td></tr>
+
+          <tr class="row-group"><td colspan="4">Sortie</td></tr>
+          <tr><td>Export ZIP renommé</td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td></tr>
+          <tr><td>Sommaire PDF du dossier</td><td><svg class="no" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td></tr>
+          <tr><td>Journal des décisions (qui, quand, pourquoi)</td><td><svg class="no" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td></tr>
+
+          <tr class="row-group"><td colspan="4">Cabinet</td></tr>
+          <tr><td>Utilisateurs</td><td>1</td><td>3</td><td>Illimités</td></tr>
+          <tr><td>Marque blanche &amp; domaine</td><td><svg class="no" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></td><td><svg class="no" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></td><td><svg class="yes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></td></tr>
+          <tr><td>Installation de vos modèles</td><td>Guide</td><td>Guide + support</td><td>Incluse</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section class="section section--paper">
+  <div class="container">
+    <div class="center">
+      <span class="eyebrow eyebrow--center">Facturation</span>
+      <h2 class="title">Les questions qui reviennent.</h2>
+    </div>
+    <div class="faq">
+      <details open>
+        <summary>Y a-t-il un engagement de durée ?</summary>
+        <p>Non. Les offres sont mensuelles, résiliables avant la prochaine échéance. L'offre annuelle donne deux mois gratuits mais reste remboursable au prorata en cas d'arrêt, sur demande.</p>
+      </details>
+      <details>
+        <summary>Que se passe-t-il si je dépasse mon quota de dossiers ?</summary>
+        <p>Sur Starter, les dossiers au-delà de 25 restent accessibles mais passent en lecture seule jusqu'au mois suivant. Nous vous prévenons à 80 % du quota — vous ne découvrez jamais le blocage en pleine collecte.</p>
+      </details>
+      <details>
+        <summary>Le premier dossier est-il vraiment gratuit ?</summary>
+        <p>Oui, avec validation IA complète et export ZIP. Nous préférons vous laisser juger sur un dossier réel plutôt que sur une capture d'écran.</p>
+      </details>
+      <details>
+        <summary>Proposez-vous l'installation clé en main ?</summary>
+        <p>Oui. Le pack « Installation &amp; Automatisation » comprend la reprise de vos modèles, le paramétrage des règles de validité, la personnalisation à votre marque et une session de prise en main avec votre équipe. Il est proposé entre 1 500 € et 2 500 € selon le nombre de modèles. Il est inclus dans l'offre Cabinet pour un engagement annuel.</p>
+      </details>
+      <details>
+        <summary>Comment se passe le paiement ?</summary>
+        <p>Carte bancaire ou virement, facturation mensuelle ou annuelle. Facture conforme au format français, TVA applicable selon votre situation.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="cta-wrap">
+  <div class="container">
+    <div class="cta">
+      <div class="cta__txt">
+        <h2>Testez sur un dossier réel, <em style="font-family:var(--serif);font-style:italic">pas sur une démo</em>.</h2>
+        <p>Envoyez-nous une liste de pièces type. Nous la configurons et vous renvoyons un lien client prêt à l'emploi sous 48 h.</p>
+      </div>
+      <div class="cta__actions">
+        <a class="btn btn--light" href="contact.html">Demander mon dossier test
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+        </a>
+        <div class="cta__fine">Sans engagement · réponse sous 24 h ouvrées</div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer__grid">
+      <div>
+        <a class="brand" href="index.html">
+          <span class="brand__mark">A</span>
+          <span>Aura Collect<small>Pièces justificatives</small></span>
+        </a>
+        <p class="footer__pitch">La collecte de pièces justificatives, sans relance. Conçu pour les cabinets et les agences qui préfèrent traiter des dossiers complets.</p>
+      </div>
+      <div>
+        <h5>Produit</h5>
+        <ul>
+          <li><a href="index.html#produit">Tableau de bord</a></li>
+          <li><a href="portail.html">Portail client</a></li>
+          <li><a href="index.html#validation">Validation IA</a></li>
+          <li><a href="index.html#modeles">Modèles de pièces</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Entreprise</h5>
+        <ul>
+          <li><a href="tarifs.html">Tarifs</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="demo.html">Démo interactive</a></li>
+          <li><a href="contact.html?offre=cabinet">Marque blanche</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Confiance</h5>
+        <ul>
+          <li><a href="index.html#confiance">Sécurité &amp; RGPD</a></li>
+          <li><a href="legal.html">Sous-traitants</a></li>
+          <li><a href="legal.html">Conditions</a></li>
+          <li><a href="legal.html">Mentions légales</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span>© <span id="year">2026</span> Aura Collect. Tous droits réservés.</span>
+      <div class="footer__badges">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Hébergement UE</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Conforme RGPD</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>Chiffrement au repos</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+<script>
+(function(){
+  var d = document.getElementById('roiDossiers'),
+      t = document.getElementById('roiTaux'),
+      o = document.getElementById('roiOffre');
+  if (!d || !t || !o) return;
+  var f = function(x){ return x.toLocaleString('fr-FR'); };
+  function calc(){
+    var dossiers = +d.value, taux = +t.value, plan = +o.value;
+    var heures = dossiers * 3 * 12 / 60;
+    var valeur = heures * taux;
+    var net = valeur - plan;
+    document.getElementById('roiDossiersVal').textContent = dossiers;
+    document.getElementById('roiTauxVal').textContent = taux + ' €';
+    document.getElementById('roiHeures').textContent = Math.round(heures);
+    document.getElementById('roiGain').innerHTML =
+      'Soit ' + f(Math.round(valeur)) + ' € de temps, pour ' + plan + ' € d\'abonnement. ' +
+      'Gain net estimé : <strong style="color:#fff">' + f(Math.round(net)) + ' € par mois</strong>.';
+  }
+  [d,t,o].forEach(function(el){ el.addEventListener('input', calc); });
+  calc();
+})();
+</script>
+</body>
+</html>
