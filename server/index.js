@@ -612,7 +612,19 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
       buffer: req.file.buffer
     });
 
-    const verdict = await ai.validate(req.file, piece, store.templateById(dossier.template).name);
+    // Une panne du modèle ne doit pas faire échouer le dépôt : la pièce est déjà
+    // enregistrée, le cabinet la contrôlera lui-même.
+    let verdict;
+    try {
+      verdict = await ai.validate(req.file, piece, store.templateById(dossier.template).name);
+    } catch (err) {
+      console.error('[ai] vérification impossible :', err.message);
+      verdict = {
+        status: 'review',
+        reason: 'Vérification automatique indisponible : le cabinet contrôlera cette pièce manuellement.',
+        provider: 'indisponible'
+      };
+    }
 
     await store.updatePiece(dossier.id, piece.key, {
       status: verdict.status,
