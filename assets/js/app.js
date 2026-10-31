@@ -217,6 +217,9 @@
           '<button class="btn btn--ghost btn--sm" id="copyLink" style="height:28px;padding:0 9px;font-size:10.5px">Copier</button></div>' +
         '<div class="detail-actions" style="margin-top:10px">' +
           '<a class="btn btn--ghost btn--sm" href="' + esc(d.link) + '" target="_blank" rel="noopener">Ouvrir le portail</a>' +
+          '<a class="btn btn--ghost btn--sm" style="border-color:#BBE5CA;color:#0A8F7C" target="_blank" rel="noopener" href="' +
+            'https://wa.me/?text=' + encodeURIComponent('Bonjour ' + d.client + ', voici le lien pour déposer vos pièces : ' + d.link) +
+          '">Envoyer par WhatsApp</a>' +
           '<button class="btn btn--ghost btn--sm" id="remindBtn">Relancer</button>' +
           '<a class="btn btn--ghost btn--sm" href="/api/dossiers/' + d.id + '/export">Télécharger le ZIP</a>' +
         '</div>' +
