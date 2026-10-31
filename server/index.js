@@ -110,14 +110,6 @@ function sign(value) {
   return crypto.createHmac('sha256', SECRET).update(value).digest('base64url');
 }
 
-/* Adresse publique du site. On la déduit de la requête : une variable
-   d'environnement oubliée ne doit jamais renvoyer le client vers localhost. */
-function baseUrl(req) {
-  const configured = (process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
-  if (configured) return configured;
-  return `${req.protocol}://${req.get('host')}`;
-}
-
 /* Le cookie porte l'échéance ET l'identifiant du cabinet : c'est lui qui délimite
    ce que la session a le droit de voir. */
 function issueSession(cabinetId) {
