@@ -160,7 +160,7 @@
       '<div class="piece-row__st" style="' + style + '">' + ico + '</div>' +
       '<div><div class="piece-row__label">' + esc(p.label) + '</div>' +
         '<div class="piece-row__meta">' + meta + '</div>' +
-        (p.reason ? '<div class="piece-row__why ' + (p.status === 'review' ? 'is-review' : '') + '">' + esc(p.reason) + '</div>' : '') +
+        (p.reason && p.status !== 'ok' ? '<div class="piece-row__why ' + (p.status === 'review' ? 'is-review' : '') + '">' + esc(p.reason) + '</div>' : '') +
         (p.filename ? '<a class="piece-row__link" href="/api/files/' + d.id + '/' + p.key + '" target="_blank" rel="noopener">Ouvrir la pièce</a>' : '') +
       '</div>' +
       '<span class="chip chip--' + (p.status === 'ok' ? 'ok' : p.status === 'ko' ? 'ko' : p.status === 'review' ? 'review' : 'attente') + '">' + tag + '</span>' +

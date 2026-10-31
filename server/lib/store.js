@@ -1,13 +1,17 @@
 'use strict';
-/* Persistance JSON simple et atomique. Suffisant pour un cabinet,
-   remplaçable par Postgres sans toucher aux routes. */
-const fs = require('fs');
-const path = require('path');
+/* Accès aux données : PostgreSQL (Supabase), schéma `aura`.
+   Les fichiers sont stockés dans aura.files (bytea) — aucune URL publique. */
 const crypto = require('crypto');
+const { Pool } = require('pg');
 
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
-const DB_PATH = path.join(DATA_DIR, 'db.json');
-const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.PG_NO_SSL === '1' ? false : { rejectUnauthorized: false },
+  max: Number(process.env.PG_POOL_MAX || 5),
+  idleTimeoutMillis: 30000
+});
+
+pool.on('error', (err) => console.error('[db] erreur de pool :', err.message));
 
 const TEMPLATES = [
   {
@@ -83,49 +87,6 @@ function templateById(id) {
   return TEMPLATES.find((t) => t.id === id) || TEMPLATES[0];
 }
 
-function ensureDirs() {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-function blankDb() {
-  return { dossiers: [], outbox: [], createdAt: new Date().toISOString() };
-}
-
-function read() {
-  ensureDirs();
-  if (!fs.existsSync(DB_PATH)) return blankDb();
-  try {
-    const parsed = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-    if (!Array.isArray(parsed.dossiers)) return blankDb();
-    if (!Array.isArray(parsed.outbox)) parsed.outbox = [];
-    return parsed;
-  } catch (err) {
-    console.error('[store] base illisible, sauvegarde de côté :', err.message);
-    try { fs.renameSync(DB_PATH, DB_PATH + '.corrupt-' + Date.now()); } catch (_) {}
-    return blankDb();
-  }
-}
-
-function write(db) {
-  ensureDirs();
-  const tmp = DB_PATH + '.' + process.pid + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
-  fs.renameSync(tmp, DB_PATH);
-}
-
-/* file d'attente : une mutation à la fois, pas d'écriture concurrente */
-let chain = Promise.resolve();
-function mutate(fn) {
-  const run = chain.then(() => {
-    const db = read();
-    const result = fn(db);
-    write(db);
-    return result;
-  });
-  chain = run.catch(() => {});
-  return run;
-}
-
 function token(size = 20) {
   const alphabet = 'abcdefghijkmnpqrstuvwxyz23456789';
   const bytes = crypto.randomBytes(size);
@@ -150,11 +111,7 @@ function statusOf(dossier) {
 
 function progressOf(dossier) {
   const ok = dossier.pieces.filter((p) => p.status === 'ok').length;
-  return {
-    ok,
-    total: dossier.pieces.length,
-    pct: Math.round((ok / dossier.pieces.length) * 100)
-  };
+  return { ok, total: dossier.pieces.length, pct: Math.round((ok / dossier.pieces.length) * 100) };
 }
 
 function createDossier({ client, email, template }) {
@@ -169,26 +126,165 @@ function createDossier({ client, email, template }) {
     createdAt: now,
     lastActivity: now,
     pieces: tpl.pieces.map((p) => ({
-      key: p.key,
-      label: p.label,
-      rule: p.rule,
-      status: 'wait',
-      filename: '',
-      stored: '',
-      mime: '',
-      size: 0,
-      reason: '',
-      typeDetecte: '',
-      dateDocument: '',
-      confidence: null,
-      provider: '',
-      at: ''
+      key: p.key, label: p.label, rule: p.rule,
+      status: 'wait', filename: '', stored: '', mime: '', size: 0,
+      reason: '', typeDetecte: '', dateDocument: '', confidence: null, provider: '', at: ''
     }))
   };
 }
 
+/* ---------- lecture ---------- */
+function mapDossier(row, pieces) {
+  return {
+    id: row.id,
+    token: row.token,
+    client: row.client,
+    email: row.email,
+    template: row.template,
+    createdAt: row.created_at,
+    lastActivity: row.last_activity,
+    pieces: pieces.map((p) => ({
+      key: p.key,
+      label: p.label,
+      rule: p.rule,
+      status: p.status,
+      filename: p.filename || '',
+      stored: p.stored || '',
+      mime: p.mime || '',
+      size: Number(p.size || 0),
+      reason: p.reason || '',
+      typeDetecte: p.type_detecte || '',
+      dateDocument: p.date_document || '',
+      confidence: p.confidence === null ? null : Number(p.confidence),
+      provider: p.provider || '',
+      at: p.at || ''
+    }))
+  };
+}
+
+async function listDossiers() {
+  const { rows } = await pool.query('select * from aura.dossiers order by created_at desc');
+  if (!rows.length) return [];
+  const ids = rows.map((r) => r.id);
+  const pieces = await pool.query(
+    'select * from aura.pieces where dossier_id = any($1::text[]) order by dossier_id, position',
+    [ids]
+  );
+  const byDossier = new Map();
+  pieces.rows.forEach((p) => {
+    if (!byDossier.has(p.dossier_id)) byDossier.set(p.dossier_id, []);
+    byDossier.get(p.dossier_id).push(p);
+  });
+  return rows.map((r) => mapDossier(r, byDossier.get(r.id) || []));
+}
+
+async function getDossier(id) {
+  const { rows } = await pool.query('select * from aura.dossiers where id = $1', [id]);
+  if (!rows.length) return null;
+  const pieces = await pool.query('select * from aura.pieces where dossier_id = $1 order by position', [id]);
+  return mapDossier(rows[0], pieces.rows);
+}
+
+async function getByToken(tokenValue) {
+  const { rows } = await pool.query('select * from aura.dossiers where token = $1', [tokenValue]);
+  if (!rows.length) return null;
+  const pieces = await pool.query('select * from aura.pieces where dossier_id = $1 order by position', [rows[0].id]);
+  return mapDossier(rows[0], pieces.rows);
+}
+
+/* ---------- écriture ---------- */
+async function insertDossier(d) {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query(
+      'insert into aura.dossiers (id, token, client, email, template) values ($1,$2,$3,$4,$5)',
+      [d.id, d.token, d.client, d.email, d.template]
+    );
+    for (let i = 0; i < d.pieces.length; i++) {
+      const p = d.pieces[i];
+      await client.query(
+        'insert into aura.pieces (dossier_id, key, label, rule, position) values ($1,$2,$3,$4,$5)',
+        [d.id, p.key, p.label, p.rule, i]
+      );
+    }
+    await client.query('commit');
+  } catch (err) {
+    await client.query('rollback');
+    throw err;
+  } finally {
+    client.release();
+  }
+  return d;
+}
+
+const PIECE_FIELDS = {
+  status: 'status', filename: 'filename', stored: 'stored', mime: 'mime', size: 'size',
+  reason: 'reason', typeDetecte: 'type_detecte', dateDocument: 'date_document',
+  confidence: 'confidence', provider: 'provider', at: 'at'
+};
+
+async function updatePiece(dossierId, pieceKey, fields) {
+  const sets = [];
+  const values = [];
+  let i = 1;
+  Object.keys(fields).forEach((k) => {
+    if (!PIECE_FIELDS[k]) return;
+    sets.push(`${PIECE_FIELDS[k]} = $${i++}`);
+    values.push(fields[k]);
+  });
+  if (!sets.length) return;
+  values.push(dossierId, pieceKey);
+  await pool.query(
+    `update aura.pieces set ${sets.join(', ')} where dossier_id = $${i++} and key = $${i}`,
+    values
+  );
+  await touch(dossierId);
+}
+
+async function touch(dossierId) {
+  await pool.query('update aura.dossiers set last_activity = now() where id = $1', [dossierId]);
+}
+
+async function saveFile(dossierId, pieceKey, file) {
+  await pool.query(
+    `insert into aura.files (dossier_id, piece_key, name, mime, size, content)
+     values ($1,$2,$3,$4,$5,$6)
+     on conflict (dossier_id, piece_key) do update
+       set name = excluded.name, mime = excluded.mime, size = excluded.size, content = excluded.content`,
+    [dossierId, pieceKey, file.name, file.mime, file.size, file.buffer]
+  );
+}
+
+async function readFile(dossierId, pieceKey) {
+  const { rows } = await pool.query(
+    'select name, mime, size, content from aura.files where dossier_id = $1 and piece_key = $2',
+    [dossierId, pieceKey]
+  );
+  return rows[0] || null;
+}
+
+async function addOutbox(entry) {
+  await pool.query(
+    `insert into aura.outbox (id, dossier_id, recipient, subject, body, mode, status, provider_id)
+     values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [entry.id, entry.dossierId || null, entry.to, entry.subject, entry.text, entry.mode, entry.status, entry.providerId || '']
+  );
+}
+
+async function listOutbox(limit = 50) {
+  const { rows } = await pool.query('select * from aura.outbox order by created_at desc limit $1', [limit]);
+  return rows;
+}
+
+async function healthy() {
+  const { rows } = await pool.query('select 1 as ok');
+  return rows[0].ok === 1;
+}
+
 module.exports = {
-  DATA_DIR, UPLOAD_DIR, TEMPLATES, templateById,
-  read, write, mutate,
-  token, slug, statusOf, progressOf, createDossier
+  pool, TEMPLATES, templateById,
+  token, slug, statusOf, progressOf, createDossier,
+  listDossiers, getDossier, getByToken, insertDossier,
+  updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy
 };

@@ -1,6 +1,5 @@
 'use strict';
 /* Export ZIP : pièces renommées, classées, plus un sommaire PDF horodaté. */
-const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
@@ -117,9 +116,9 @@ async function buildZip(res, dossier, tplName) {
 
   for (const piece of dossier.pieces) {
     if (!piece.stored) continue;
-    const filePath = path.join(store.UPLOAD_DIR, dossier.id, piece.stored);
-    if (fs.existsSync(filePath)) {
-      archive.file(filePath, { name: folder + '/' + exportName(dossier, piece) });
+    const file = await store.readFile(dossier.id, piece.key);
+    if (file && file.content) {
+      archive.append(file.content, { name: folder + '/' + exportName(dossier, piece) });
     }
   }
 

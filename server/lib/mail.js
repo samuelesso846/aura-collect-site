@@ -46,10 +46,7 @@ async function send({ to, subject, text, dossierId }) {
     console.log('\n[mail:outbox] à ' + to + ' — ' + subject + '\n' + text + '\n');
   }
 
-  await store.mutate((db) => {
-    db.outbox.unshift(entry);
-    db.outbox = db.outbox.slice(0, 200);
-  });
+  await store.addOutbox(entry);
   return entry;
 }
 

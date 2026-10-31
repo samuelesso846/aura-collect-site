@@ -1,7 +1,7 @@
 # Aura Collect — site d'entreprise + démo produit
 
 **Vitrine en ligne :** https://samuelesso846.github.io/aura-collect-site/
-**Application réelle :** `npm start` puis http://localhost:8788/app (voir §9)
+**Application réelle :** `npm start` puis http://localhost:8788/app — données sur Supabase (voir §9)
 
 Site vitrine statique (HTML/CSS/JS, sans build) pour **Aura Collect**, la collecte de pièces justificatives avec validation IA.
 Il inclut une **démo fonctionnelle** du parcours cabinet → client, utilisable en rendez-vous commercial.
@@ -104,12 +104,13 @@ Le dossier contient désormais un serveur qui rend le produit fonctionnel : les 
 ### Lancer
 
 ```bash
-cp .env.example .env      # renseigner au minimum CABINET_PASSWORD et SESSION_SECRET
+cp .env.example .env      # CABINET_PASSWORD, SESSION_SECRET, DATABASE_URL, GROQ_API_KEY
 npm install
 npm start                 # http://localhost:8788/app
 ```
 
 Le mot de passe par défaut est `aura-demo` uniquement si `CABINET_PASSWORD` est absent — à changer avant toute mise en ligne.
+`DATABASE_URL` pointe vers le pooler Supabase (voir §10). Sans elle, le serveur démarre mais l'API répond en erreur : la base est obligatoire.
 
 ### Ce qui fonctionne réellement
 
@@ -124,9 +125,9 @@ Le mot de passe par défaut est `aura-demo` uniquement si `CABINET_PASSWORD` est
 
 - **Emails** : sans `RESEND_API_KEY`, les messages sont journalisés dans `data/db.json` (outbox) et affichés dans la console. Le lien est toujours visible dans le dashboard.
 - **PDF scannés** : pas de conversion PDF → image (nécessite `pdftoppm` ou un service), donc pas d'analyse visuelle ; la pièce passe en revue humaine.
-- **Base** : un fichier JSON (`data/db.json`) avec écritures atomiques. Suffisant pour un cabinet, à remplacer par Postgres pour du multi-tenant.
 - **Authentification** : un seul compte cabinet partagé, pas d'utilisateurs ni de rôles.
-- **Fichiers** : disque local, pas de chiffrement au repos ni de sauvegarde hors site.
+- **Multi-tenant** : une seule organisation par déploiement ; le schéma n'a pas encore de colonne `cabinet_id`.
+- **Fichiers** : stockés en `bytea` dans Postgres (pratique pour le MVP, à basculer vers Supabase Storage au-delà de quelques milliers de pièces).
 
 ### Endpoints
 
@@ -160,3 +161,29 @@ npm start
 ```
 
 Variables à définir : `CABINET_PASSWORD`, `SESSION_SECRET`, `PUBLIC_BASE_URL` (URL publique réelle), `GROQ_API_KEY`, éventuellement `RESEND_API_KEY` et `MAIL_FROM`.
+
+
+## 10. Base Supabase
+
+Projet dédié `aura-collect`, organisation `TogoMarché`, région `eu-central-1` (coût de création : 0 €).
+
+| Élément | Valeur |
+|---|---|
+| Référence projet | `jtabbvaebigsklawqlth` |
+| Schéma | `aura` (isolé du reste du projet) |
+| Tables | `aura.dossiers`, `aura.pieces`, `aura.files`, `aura.outbox` |
+| Rôle applicatif | `aura_app` — accès limité au schéma `aura` |
+| Connexion | pooler `aws-1-eu-central-1.pooler.supabase.com:6543`, base `postgres` |
+
+### Sécurité
+
+- RLS activé sur les quatre tables, avec une seule politique `to aura_app`.
+- `anon` et `authenticated` n'ont aucun droit sur le schéma (révoqués explicitement).
+- Les fichiers ne sont jamais exposés : ils sortent uniquement via `/api/files/:id/:key`, derrière la session cabinet, ou dans le ZIP.
+- Le mot de passe du rôle `aura_app` et `DATABASE_URL` vivent dans `.env`, jamais dans le dépôt.
+
+### Exploitation
+
+- Sauvegarde : `pg_dump` depuis le pooler (session 5432) ou backups Supabase.
+- Rotation du mot de passe : `alter role aura_app with password '...'` via l'éditeur SQL Supabase, puis mise à jour de `DATABASE_URL`.
+- Le pooler en mode transaction (6543) ne supporte pas les requêtes préparées nommées : `pg` en mode simple query, ce qui est le cas ici.

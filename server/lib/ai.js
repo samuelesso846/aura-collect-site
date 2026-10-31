@@ -5,7 +5,7 @@
 
 const Groq = {
   baseUrl: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
-  model: process.env.GROQ_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct',
+  model: process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
   key: process.env.GROQ_API_KEY || ''
 };
 
@@ -68,7 +68,10 @@ function parseJson(text) {
   }
 }
 
-async function callGroq(content) {
+function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+async function callGroq(content, attempt) {
+  attempt = attempt || 1;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 45000);
   try {
@@ -76,7 +79,8 @@ async function callGroq(content) {
       method: 'POST',
       headers: {
         Authorization: 'Bearer ' + Groq.key,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'User-Agent': 'AuraCollect/1.0'
       },
       body: JSON.stringify({
         model: Groq.model,
@@ -93,6 +97,17 @@ async function callGroq(content) {
 
     const body = await res.text();
     if (!res.ok) {
+      if ((res.status === 429 || res.status >= 500) && attempt < 2) {
+        const header = res.headers.get('retry-after');
+        const hinted = /try again in ([0-9.]+)\s*s/i.exec(body);
+        const delay = header ? Number(header) * 1000
+          : hinted ? Math.min(25000, Number(hinted[1]) * 1000 + 600)
+            : 3000;
+        console.warn('[ai] ' + res.status + ' — nouvelle tentative dans ' + Math.round(delay / 1000) + ' s');
+        clearTimeout(timer);
+        await wait(delay);
+        return callGroq(content, attempt + 1);
+      }
       const err = new Error('Groq ' + res.status + ' : ' + body.slice(0, 300));
       err.status = res.status;
       throw err;
@@ -157,6 +172,20 @@ function toVerdict(json) {
   };
 }
 
+async function shrink(buffer) {
+  try {
+    const sharp = require('sharp');
+    return await sharp(buffer)
+      .rotate()
+      .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+  } catch (err) {
+    console.warn('[ai] redimensionnement impossible :', err.message);
+    return buffer;
+  }
+}
+
 async function readPdfText(buffer) {
   try {
     const pdfParse = require('pdf-parse');
@@ -219,7 +248,8 @@ async function validate(file, piece, templateName) {
         { type: 'text', text: 'Contenu extrait du PDF :\n' + text.slice(0, 9000) }
       ];
     } else {
-      const dataUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+      const light = await shrink(file.buffer);
+      const dataUrl = `data:image/jpeg;base64,${light.toString('base64')}`;
       content = [
         { type: 'text', text: userPrompt(piece, templateName) },
         { type: 'image_url', image_url: { url: dataUrl } }
@@ -242,7 +272,9 @@ async function validate(file, piece, templateName) {
     return {
       ...base,
       status: 'review',
-      reason: "La vérification automatique a échoué (service indisponible). Le cabinet contrôle la pièce.",
+      reason: err.status === 429
+        ? 'Le service de vérification est momentanément saturé. Le cabinet contrôle la pièce.'
+        : 'La vérification automatique a échoué. Le cabinet contrôle la pièce.',
       configured: true,
       error: err.status || 0
     };

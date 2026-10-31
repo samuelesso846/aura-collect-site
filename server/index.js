@@ -1,8 +1,7 @@
 'use strict';
 /* Aura Collect — serveur de production (MVP mono-cabinet).
-   Démarrage : node server/index.js   (voir .env.example) */
+   Données : PostgreSQL Supabase (schéma aura). Fichiers : bytea, jamais publics. */
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
@@ -20,15 +19,13 @@ const SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
 const PUBLIC_BASE = (process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const MAX_MB = 15;
 
-if (!process.env.CABINET_PASSWORD) {
-  console.warn('[aura] CABINET_PASSWORD non défini : mot de passe de démonstration « aura-demo ».');
-}
-if (!process.env.SESSION_SECRET) {
-  console.warn('[aura] SESSION_SECRET non défini : secret de développement utilisé.');
-}
+if (!process.env.CABINET_PASSWORD) console.warn('[aura] CABINET_PASSWORD absent : mot de passe de démonstration « aura-demo ».');
+if (!process.env.SESSION_SECRET) console.warn('[aura] SESSION_SECRET absent : secret de développement utilisé.');
+if (!process.env.DATABASE_URL) console.warn('[aura] DATABASE_URL absent : la base Supabase est requise.');
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '200kb' }));
 
 /* ---------- session ---------- */
@@ -66,7 +63,7 @@ function setSessionCookie(res, value) {
     (process.env.NODE_ENV === 'production' ? '; Secure' : ''));
 }
 
-/* ---------- limitation simple des tentatives de connexion ---------- */
+/* ---------- limitation des tentatives ---------- */
 const attempts = new Map();
 function throttle(ip) {
   const now = Date.now();
@@ -78,7 +75,7 @@ function throttle(ip) {
   return rec.until <= now;
 }
 
-/* ---------- vues publiques ---------- */
+/* ---------- vues ---------- */
 function publicDossier(d) {
   return {
     client: d.client,
@@ -156,28 +153,38 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/me', (req, res) => {
+app.get('/api/me', async (req, res) => {
+  let db = false;
+  try { db = await store.healthy(); } catch (err) { console.error('[db] health:', err.message); }
   res.json({
     authenticated: readSession(req),
     cabinet: CABINET,
     ai: ai.status(),
     mail: mail.mode(),
+    db: db ? 'supabase' : 'down',
     trial: !process.env.CABINET_PASSWORD
   });
 });
 
+app.get('/api/health', async (req, res) => {
+  try {
+    await store.healthy();
+    res.json({ ok: true, db: 'supabase', ai: ai.configured() ? 'groq' : 'off' });
+  } catch (err) {
+    res.status(503).json({ ok: false, error: err.message });
+  }
+});
+
+/* ---------- dossiers (cabinet) ---------- */
 app.get('/api/templates', requireAuth, (req, res) => {
   res.json({ templates: store.TEMPLATES });
 });
 
-/* ---------- dossiers (cabinet) ---------- */
-app.get('/api/dossiers', requireAuth, (req, res) => {
-  const db = store.read();
-  const dossiers = db.dossiers
-    .slice()
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .map(cabinetDossier);
-  res.json({ dossiers, cabinet: CABINET });
+app.get('/api/dossiers', requireAuth, async (req, res, next) => {
+  try {
+    const dossiers = (await store.listDossiers()).map(cabinetDossier);
+    res.json({ dossiers, cabinet: CABINET });
+  } catch (err) { next(err); }
 });
 
 app.post('/api/dossiers', requireAuth, async (req, res, next) => {
@@ -188,9 +195,9 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
     if (!store.templateById(template)) return res.status(400).json({ error: 'Modèle inconnu.' });
 
     const dossier = store.createDossier({ client, email, template });
-    await store.mutate((db) => { db.dossiers.unshift(dossier); });
-
+    await store.insertDossier(dossier);
     const entry = await mail.sendMagicLink(dossier);
+
     res.status(201).json({
       dossier: cabinetDossier(dossier),
       mail: { mode: entry.mode, status: entry.status }
@@ -200,8 +207,7 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
 
 app.post('/api/dossiers/:id/remind', requireAuth, async (req, res, next) => {
   try {
-    const db = store.read();
-    const dossier = db.dossiers.find((d) => d.id === req.params.id);
+    const dossier = await store.getDossier(req.params.id);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
     const missing = dossier.pieces.filter((p) => p.status !== 'ok').length;
     if (!missing) return res.status(400).json({ error: 'Le dossier est déjà complet.' });
@@ -212,37 +218,34 @@ app.post('/api/dossiers/:id/remind', requireAuth, async (req, res, next) => {
 
 app.get('/api/dossiers/:id/export', requireAuth, async (req, res, next) => {
   try {
-    const db = store.read();
-    const dossier = db.dossiers.find((d) => d.id === req.params.id);
+    const dossier = await store.getDossier(req.params.id);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
     await archive.buildZip(res, dossier, store.templateById(dossier.template).name);
   } catch (err) { next(err); }
 });
 
-app.get('/api/files/:id/:key', requireAuth, (req, res) => {
-  const db = store.read();
-  const dossier = db.dossiers.find((d) => d.id === req.params.id);
-  if (!dossier) return res.status(404).end();
-  const piece = dossier.pieces.find((p) => p.key === req.params.key && p.stored);
-  if (!piece) return res.status(404).end();
-  const file = path.join(store.UPLOAD_DIR, dossier.id, piece.stored);
-  if (!fs.existsSync(file)) return res.status(404).end();
-  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(piece.filename || 'piece')}"`);
-  res.sendFile(file);
+app.get('/api/files/:id/:key', requireAuth, async (req, res, next) => {
+  try {
+    const file = await store.readFile(req.params.id, req.params.key);
+    if (!file) return res.status(404).end();
+    res.setHeader('Content-Type', file.mime || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.name || 'piece')}"`);
+    res.send(file.content);
+  } catch (err) { next(err); }
 });
 
 /* ---------- portail client (public) ---------- */
-app.get('/api/portal/:token', (req, res) => {
-  const db = store.read();
-  const dossier = db.dossiers.find((d) => d.token === req.params.token);
-  if (!dossier) return res.status(404).json({ error: 'Lien invalide ou expiré.' });
-  res.json({ cabinet: CABINET, dossier: publicDossier(dossier), ai: ai.configured() });
+app.get('/api/portal/:token', async (req, res, next) => {
+  try {
+    const dossier = await store.getByToken(req.params.token);
+    if (!dossier) return res.status(404).json({ error: 'Lien invalide ou expiré.' });
+    res.json({ cabinet: CABINET, dossier: publicDossier(dossier), ai: ai.configured() });
+  } catch (err) { next(err); }
 });
 
 app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, res, next) => {
   try {
-    const db = store.read();
-    const dossier = db.dossiers.find((d) => d.token === req.params.token);
+    const dossier = await store.getByToken(req.params.token);
     if (!dossier) return res.status(404).json({ error: 'Lien invalide.' });
     if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
 
@@ -253,30 +256,31 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
       : req.file.mimetype === 'image/png' ? '.png'
         : req.file.mimetype === 'image/webp' ? '.webp' : '.jpg';
     const stored = store.token(16) + ext;
-    const dir = path.join(store.UPLOAD_DIR, dossier.id);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, stored), req.file.buffer);
+
+    await store.saveFile(dossier.id, piece.key, {
+      name: req.file.originalname,
+      mime: req.file.mimetype,
+      size: req.file.size,
+      buffer: req.file.buffer
+    });
 
     const verdict = await ai.validate(req.file, piece, store.templateById(dossier.template).name);
 
-    await store.mutate((db2) => {
-      const d = db2.dossiers.find((x) => x.id === dossier.id);
-      const p = d.pieces.find((x) => x.key === piece.key);
-      p.status = verdict.status;
-      p.reason = verdict.reason || '';
-      p.stored = stored;
-      p.filename = req.file.originalname;
-      p.mime = req.file.mimetype;
-      p.size = req.file.size;
-      p.typeDetecte = verdict.typeDetecte || '';
-      p.dateDocument = verdict.dateDocument || '';
-      p.confidence = verdict.confidence;
-      p.provider = verdict.provider || '';
-      p.at = new Date().toISOString();
-      d.lastActivity = new Date().toISOString();
+    await store.updatePiece(dossier.id, piece.key, {
+      status: verdict.status,
+      reason: verdict.reason || '',
+      stored,
+      filename: req.file.originalname,
+      mime: req.file.mimetype,
+      size: req.file.size,
+      typeDetecte: verdict.typeDetecte || '',
+      dateDocument: verdict.dateDocument || '',
+      confidence: verdict.confidence,
+      provider: verdict.provider || '',
+      at: new Date().toISOString()
     });
 
-    const fresh = store.read().dossiers.find((d) => d.id === dossier.id);
+    const fresh = await store.getDossier(dossier.id);
     res.json({
       piece: { key: piece.key, status: verdict.status, reason: verdict.reason, dateDocument: verdict.dateDocument },
       dossier: publicDossier(fresh)
@@ -292,9 +296,6 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
 /* ---------- pages ---------- */
 app.get('/p/:token', (req, res) => res.sendFile(path.join(ROOT, 'p.html')));
 app.get('/app', (req, res) => res.sendFile(path.join(ROOT, 'app.html')));
-
-/* fichiers privés jamais servis en statique */
-app.use(['/data', '/server', '/node_modules'], (req, res) => res.status(404).end());
 
 app.use(express.static(ROOT, {
   extensions: ['html'],
@@ -320,6 +321,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Aura Collect — http://localhost:${PORT}`);
   console.log(`  cabinet : ${CABINET}`);
-  console.log(`  IA      : ${ai.configured() ? 'Groq / ' + ai.status().model : 'non configurée (statut « à vérifier »)'}`);
+  console.log(`  base    : ${process.env.DATABASE_URL ? 'Supabase Postgres' : 'NON CONFIGURÉE'}`);
+  console.log(`  IA      : ${ai.configured() ? 'Groq / ' + ai.status().model : 'non configurée'}`);
   console.log(`  email   : ${mail.mode() === 'resend' ? 'Resend' : 'journal local (outbox)'}`);
 });
