@@ -1,6 +1,7 @@
 # Aura Collect — site d'entreprise + démo produit
 
-**En ligne :** https://samuelesso846.github.io/aura-collect-site/
+**Vitrine en ligne :** https://samuelesso846.github.io/aura-collect-site/
+**Application réelle :** `npm start` puis http://localhost:8788/app (voir §9)
 
 Site vitrine statique (HTML/CSS/JS, sans build) pour **Aura Collect**, la collecte de pièces justificatives avec validation IA.
 Il inclut une **démo fonctionnelle** du parcours cabinet → client, utilisable en rendez-vous commercial.
@@ -94,3 +95,68 @@ Variables d'environnement typiques : `GEMINI_API_KEY`, `FIREBASE_PROJECT_ID`, `R
 - Pas de backend : la démo ne conserve rien après effacement du stockage navigateur.
 - Le portail client est un écran de démonstration ; un vrai lien expirant et un contrôle d'accès serveur restent à implémenter.
 - Les tarifs, mentions et chiffres d'architecture sont des propositions commerciales à valider avant publication.
+
+
+## 9. Application réelle (backend Node)
+
+Le dossier contient désormais un serveur qui rend le produit fonctionnel : les pièces sont réellement stockées, analysées et exportées.
+
+### Lancer
+
+```bash
+cp .env.example .env      # renseigner au minimum CABINET_PASSWORD et SESSION_SECRET
+npm install
+npm start                 # http://localhost:8788/app
+```
+
+Le mot de passe par défaut est `aura-demo` uniquement si `CABINET_PASSWORD` est absent — à changer avant toute mise en ligne.
+
+### Ce qui fonctionne réellement
+
+- **Comptes cabinet** : connexion par mot de passe, cookie de session signé (HMAC, HttpOnly, SameSite=Lax, 12 h).
+- **Dossiers** : création, lien client unique, suivi des statuts, relance.
+- **Dépôt client** : upload multipart (JPEG, PNG, WEBP, PDF — 15 Mo max), stockage hors du dossier public, nom de fichier aléatoire.
+- **Validation IA** : appel Groq (modèle vision), sortie JSON stricte (`type_conforme`, `lisible`, `date_document`, `date_valide`, `confiance`, `motif`). Trois états : `ok`, `ko`, `review`. En cas de panne, de doute ou de PDF scanné, la pièce passe en `review` — jamais d'acceptation silencieuse.
+- **Export ZIP** : pièces renommées `Nom_Piece.pdf`, sommaire PDF généré avec `pdf-lib`, fichier `_lisez-moi.txt` si des pièces manquent.
+- **Portail client** : `/p/<token>`, progression, messages de refus rédigés pour le client.
+
+### Ce qui reste simulé ou incomplet
+
+- **Emails** : sans `RESEND_API_KEY`, les messages sont journalisés dans `data/db.json` (outbox) et affichés dans la console. Le lien est toujours visible dans le dashboard.
+- **PDF scannés** : pas de conversion PDF → image (nécessite `pdftoppm` ou un service), donc pas d'analyse visuelle ; la pièce passe en revue humaine.
+- **Base** : un fichier JSON (`data/db.json`) avec écritures atomiques. Suffisant pour un cabinet, à remplacer par Postgres pour du multi-tenant.
+- **Authentification** : un seul compte cabinet partagé, pas d'utilisateurs ni de rôles.
+- **Fichiers** : disque local, pas de chiffrement au repos ni de sauvegarde hors site.
+
+### Endpoints
+
+| Méthode | Route | Accès |
+|---|---|---|
+| POST | `/api/login` · `/api/logout` | public |
+| GET | `/api/me` | public |
+| GET | `/api/templates` | cabinet |
+| GET/POST | `/api/dossiers` | cabinet |
+| POST | `/api/dossiers/:id/remind` | cabinet |
+| GET | `/api/dossiers/:id/export` | cabinet |
+| GET | `/api/files/:id/:key` | cabinet |
+| GET | `/api/portal/:token` | public (token) |
+| POST | `/api/portal/:token/pieces/:key` | public (token) |
+| GET | `/p/:token` · `/app` | pages |
+
+### Activer Groq
+
+1. Créer une clé sur console.groq.com.
+2. La placer dans `.env` : `GROQ_API_KEY=gsk_...`
+3. Vérifier que le modèle est disponible : `GROQ_MODEL` (par défaut `meta-llama/llama-4-scout-17b-16e-instruct`).
+4. Redémarrer, puis vérifier la pastille « Groq » dans l'en-tête du dashboard.
+
+### Déploiement
+
+GitHub Pages ne sert que la vitrine statique. Pour l'application, il faut un hébergeur Node (Railway, Render, Fly.io, VPS) avec un volume persistant pour `data/`, puis :
+
+```bash
+npm install
+npm start
+```
+
+Variables à définir : `CABINET_PASSWORD`, `SESSION_SECRET`, `PUBLIC_BASE_URL` (URL publique réelle), `GROQ_API_KEY`, éventuellement `RESEND_API_KEY` et `MAIL_FROM`.

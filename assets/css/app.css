@@ -1,0 +1,104 @@
+/* Aura Collect — application (tableau de bord + connexion) */
+
+.admin{background:#F4F5FA;min-height:100vh}
+.admin-top{
+  height:64px;background:#fff;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:16px;padding:0 22px;position:sticky;top:0;z-index:40;
+}
+.admin-top .brand{font-size:15px}
+.admin-top__cabinet{font-size:12px;color:var(--muted);padding-left:14px;border-left:1px solid var(--line);line-height:1.3}
+.admin-top__cabinet b{display:block;color:var(--ink-3);font-size:12.5px;font-weight:600}
+.admin-top__right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.ai-pill{
+  display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;
+  padding:5px 10px;border-radius:100px;background:var(--teal-soft);color:#0A8F7C;
+}
+.ai-pill.is-off{background:var(--amber-soft);color:#A5620B}
+.ai-pill i{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+.admin-main{max-width:1120px;margin:0 auto;padding:26px 22px 70px}
+
+/* connexion */
+.auth{min-height:calc(100vh - 64px);display:grid;place-items:center;padding:30px 20px}
+.auth__card{width:100%;max-width:400px;background:#fff;border:1px solid var(--line);border-radius:22px;padding:32px;box-shadow:var(--shadow)}
+.auth__card h1{font-size:22px;letter-spacing:-.03em;margin-top:6px}
+.auth__card p{font-size:13px;color:var(--slate);margin-top:8px;line-height:1.55}
+.auth__card form{margin-top:22px}
+.auth__err{background:var(--red-soft);color:#B3253F;border:1px solid #F6CFD7;border-radius:9px;padding:10px 12px;font-size:12px;margin-bottom:12px;display:none}
+.auth__err.is-on{display:block}
+.auth__note{font-size:11px;color:var(--muted);margin-top:16px;line-height:1.5}
+
+/* entête de page */
+.page-head{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.page-head h1{font-size:24px;letter-spacing:-.035em}
+.page-head p{font-size:12.5px;color:var(--muted);margin-top:4px}
+.page-head .btn{margin-left:auto}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.stat-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 16px}
+.stat-card__l{font-size:10px;font-weight:650;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.stat-card__n{font-size:24px;font-weight:700;letter-spacing:-.04em;margin-top:7px;line-height:1}
+.stat-card__n.is-warn{color:#C4720F}
+.stat-card__n.is-ok{color:var(--green)}
+
+/* liste */
+.dlist{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.dlist__head,.drow{display:grid;grid-template-columns:1.5fr 1fr 1.1fr .8fr auto;gap:14px;align-items:center;padding:13px 18px}
+.dlist__head{background:#FAFBFE;border-bottom:1px solid var(--line);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.drow{border-bottom:1px solid var(--line-2);cursor:pointer;transition:background .15s;text-align:left;width:100%;background:#fff}
+.drow:last-child{border-bottom:0}
+.drow:hover{background:#FBFAFF}
+.drow__client{display:flex;align-items:center;gap:10px;min-width:0}
+.drow__av{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:#EEEBFF;color:#4A33B8;display:grid;place-items:center;font-size:10px;font-weight:700}
+.drow__name{font-size:12.5px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drow__mail{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drow__tpl{font-size:11.5px;color:var(--ink-3)}
+.drow__date{font-size:10.5px;color:var(--muted)}
+.drow__bar{height:4px;background:#EEF0F6;border-radius:4px;overflow:hidden;margin-top:5px}
+.drow__bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#6B4BFF,#A98BFF)}
+.drow__bar.is-ok i{background:linear-gradient(90deg,#0FC2A8,#4BE0C8)}
+.drow__bar.is-warn i{background:linear-gradient(90deg,#FF9F43,#FFC078)}
+.drow__count{font-size:10px;color:var(--muted);margin-top:4px}
+
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 8px;border-radius:6px;white-space:nowrap}
+.chip--attente{background:#F1F3F8;color:#7A8298}
+.chip--incomplet{background:var(--amber-soft);color:#A5620B}
+.chip--complet{background:var(--green-soft);color:var(--green)}
+.chip--review{background:var(--amber-soft);color:#A5620B}
+.chip--ko{background:var(--red-soft);color:#C4304A}
+.chip--ok{background:var(--green-soft);color:var(--green)}
+.chip i{width:5px;height:5px;border-radius:50%;background:currentColor}
+
+.empty-state{background:#fff;border:1px dashed var(--line);border-radius:16px;padding:44px 20px;text-align:center}
+.empty-state h3{font-size:15px}
+.empty-state p{font-size:12.5px;color:var(--muted);margin-top:6px}
+
+/* détail */
+.piece-row{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line-2)}
+.piece-row:last-child{border-bottom:0}
+.piece-row__st{width:24px;height:24px;border-radius:50%;display:grid;place-items:center}
+.piece-row__st svg{width:13px;height:13px}
+.piece-row__label{font-size:12.5px;font-weight:600;line-height:1.35}
+.piece-row__meta{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.45}
+.piece-row__why{font-size:10.5px;color:#C4304A;margin-top:3px;line-height:1.4}
+.piece-row__why.is-review{color:#A5620B}
+.piece-row__link{font-size:10.5px;color:var(--violet);text-decoration:underline;margin-top:3px;display:inline-block}
+.detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.detail-note{font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:10px}
+.link-line{display:flex;align-items:center;gap:6px;background:#F7F6FF;border:1px dashed #C9BEFF;border-radius:9px;padding:9px 11px;margin-top:8px}
+.link-line code{font-family:var(--mono);font-size:10px;color:#4A33B8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+
+@media (max-width:860px){
+  .stats{grid-template-columns:1fr 1fr}
+  .dlist__head{display:none}
+  .drow{grid-template-columns:1fr auto;gap:6px 12px;padding:14px 16px}
+  .drow__tpl{grid-column:1;font-size:11px}
+  .drow__prog{grid-column:1/-1}
+  .drow__date{grid-column:1;grid-row:3}
+  .drow__status{grid-column:2;grid-row:1}
+  .admin-top__cabinet{display:none}
+  .page-head .btn{margin-left:0;width:100%}
+}
+
+[hidden]{display:none!important}

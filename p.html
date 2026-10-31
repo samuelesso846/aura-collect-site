@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<base href="/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Déposer mes pièces — Aura Collect</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F3F0FF">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aura.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .upload.is-review .upload__ico{background:var(--amber-soft);color:#A5620B}
+  .upload__s.review{color:#A5620B}
+  .portal__skeleton{padding:40px 30px}
+  .sk{background:linear-gradient(90deg,#F1F2F8,#FAFAFE,#F1F2F8);background-size:200% 100%;animation:sk 1.2s linear infinite;border-radius:8px;height:12px;margin-bottom:12px}
+  @keyframes sk{to{background-position:-200% 0}}
+</style>
+</head>
+<body>
+<div class="portal">
+  <div class="portal__top">
+    <a class="portal__brand brand" href="index.html" style="font-size:13.5px">
+      <span class="brand__mark" style="width:26px;height:26px;flex:0 0 26px;font-size:12px">A</span>
+      <span>Aura Collect</span>
+    </a>
+    <span class="portal__secure">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      Lien sécurisé
+    </span>
+  </div>
+
+  <div class="portal__wrap">
+    <div class="portal__card" id="card">
+      <div class="portal__skeleton">
+        <div class="sk" style="width:35%"></div>
+        <div class="sk" style="width:65%;height:22px"></div>
+        <div class="sk" style="width:80%"></div>
+        <div class="sk" style="width:100%;height:8px;margin-top:22px"></div>
+      </div>
+    </div>
+
+    <p style="text-align:center;font-size:11px;color:#8A90A6;margin-top:18px">
+      Propulsé par Aura Collect · <a href="index.html" style="text-decoration:underline">Qu'est-ce qu'Aura Collect ?</a>
+    </p>
+  </div>
+</div>
+
+<input type="file" id="fileCamera" accept="image/*" capture="environment" hidden>
+<input type="file" id="fileAny" accept="application/pdf,image/jpeg,image/png,image/webp" hidden>
+
+<script src="assets/js/portal-live.js"></script>
+</body>
+</html>

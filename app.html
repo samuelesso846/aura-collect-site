@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cabinet — Aura Collect</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aura.css">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body class="admin">
+
+<header class="admin-top">
+  <a class="brand" href="index.html">
+    <span class="brand__mark" style="width:28px;height:28px;flex:0 0 28px;font-size:13px">A</span>
+    <span>Aura Collect</span>
+  </a>
+  <div class="admin-top__cabinet">
+    <b id="cabinetName">Cabinet</b>
+    Espace cabinet
+  </div>
+  <div class="admin-top__right">
+    <span class="ai-pill" id="aiPill"><i></i><span>Vérification IA</span></span>
+    <a class="btn btn--ghost btn--sm" href="index.html">Site</a>
+    <button class="btn btn--ghost btn--sm" id="logoutBtn" hidden>Déconnexion</button>
+  </div>
+</header>
+
+<main>
+  <!-- connexion -->
+  <section class="auth" id="loginView">
+    <div class="auth__card">
+      <span class="eyebrow">Espace cabinet</span>
+      <h1>Reprendre mes dossiers</h1>
+      <p>Entrez le mot de passe du cabinet pour accéder aux demandes, aux pièces déposées et aux exports.</p>
+      <form id="loginForm">
+        <div class="auth__err" id="loginErr"></div>
+        <div class="field">
+          <label for="password">Mot de passe</label>
+          <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+        </div>
+        <button class="btn btn--primary btn--block" type="submit" id="loginBtn">Ouvrir mon espace</button>
+      </form>
+      <p class="auth__note">Un seul compte cabinet pour ce MVP. Les liens clients, eux, ne demandent aucun mot de passe.</p>
+    </div>
+  </section>
+
+  <!-- tableau de bord -->
+  <section class="admin-main" id="dashView" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Dossiers</h1>
+        <p id="dashSub">—</p>
+      </div>
+      <button class="btn btn--primary btn--sm" id="newBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Nouvelle demande
+      </button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+    <div id="listWrap"></div>
+  </section>
+</main>
+
+<!-- modale nouvelle demande -->
+<div class="overlay" id="modalNew">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal__head">
+      <div>
+        <h2 id="modalTitle">Nouvelle demande</h2>
+        <p>Le client reçoit un lien par email. Aucun compte à créer.</p>
+      </div>
+      <button class="modal__x" data-close-new aria-label="Fermer">✕</button>
+    </div>
+    <div class="modal__body" id="modalBody">
+      <form id="newForm">
+        <div class="field">
+          <label for="clientName">Nom du client</label>
+          <input id="clientName" type="text" required placeholder="Camille Lemaire">
+        </div>
+        <div class="field">
+          <label for="clientEmail">Email du client</label>
+          <input id="clientEmail" type="email" required placeholder="camille@email.fr">
+        </div>
+        <div class="field">
+          <label for="clientTpl">Modèle de pièces</label>
+          <select id="clientTpl"></select>
+          <div class="field__hint" id="tplHint"></div>
+        </div>
+        <button class="btn btn--primary btn--block" type="submit" id="createBtn" style="margin-top:6px">Créer et envoyer le lien</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- tiroir dossier -->
+<div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Détail du dossier">
+  <div class="drawer__head">
+    <div>
+      <h2 id="drawerName">Dossier</h2>
+      <p id="drawerMeta"></p>
+    </div>
+    <button class="modal__x" id="drawerClose" aria-label="Fermer" style="margin-left:auto">✕</button>
+  </div>
+  <div class="drawer__body" id="drawerBody"></div>
+</div>
+<div class="overlay" id="drawerOverlay" style="z-index:105"></div>
+
+<script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "aura-collect",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aura Collect — collecte et validation IA des pièces justificatives",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "dev": "node --watch --env-file-if-exists=.env server/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "1.1.1"
+  }
+}
