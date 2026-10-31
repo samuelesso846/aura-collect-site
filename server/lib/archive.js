@@ -115,7 +115,8 @@ async function buildZip(res, dossier, tplName) {
   archive.pipe(res);
 
   for (const piece of dossier.pieces) {
-    if (!piece.stored) continue;
+    /* seules les pièces validées entrent dans le dossier remis au cabinet */
+    if (!piece.stored || piece.status !== 'ok') continue;
     const file = await store.readFile(dossier.id, piece.key);
     if (file && file.content) {
       archive.append(file.content, { name: folder + '/' + exportName(dossier, piece) });
@@ -125,14 +126,14 @@ async function buildZip(res, dossier, tplName) {
   const sommaire = await summaryPdf(dossier, tplName);
   archive.append(sommaire, { name: folder + '/sommaire.pdf' });
 
-  const missing = dossier.pieces.filter((p) => !p.stored);
+  const missing = dossier.pieces.filter((p) => p.status !== 'ok');
   const note = [
     'AURA COLLECT — dossier ' + dossier.client,
     'Modèle : ' + tplName,
     'Export : ' + new Date().toLocaleString('fr-FR'),
     '',
     missing.length
-      ? 'Pièces manquantes : ' + missing.map((p) => p.label).join(', ')
+      ? 'Pièces non validées (absentes de cette archive) : ' + missing.map((p) => p.label).join(', ')
       : 'Toutes les pièces attendues sont présentes.'
   ].join('\n');
   archive.append(note, { name: folder + '/_lisez-moi.txt' });
