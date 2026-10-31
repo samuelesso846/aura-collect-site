@@ -270,13 +270,6 @@
       else toast('Copie indisponible');
     });
 
-    $('#remindBtn').addEventListener('click', async function () {
-      try {
-        var r = await api('/api/dossiers/' + d.id + '/remind', { method: 'POST' });
-        toast(r.mail.mode === 'resend' ? 'Relance envoyée' : 'Relance journalisée (email non configuré)');
-      } catch (e) { toast(e.message, true); }
-    });
-
     var sealBtn = $('#sealBtn');
     if (sealBtn) {
       sealBtn.addEventListener('click', async function () {

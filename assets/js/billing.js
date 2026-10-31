@@ -66,7 +66,7 @@ function renderPlans() {
       <ul>
         <li>${plan.limits.users ? plan.limits.users + ' utilisateurs' : 'Utilisateurs illimités'}</li>
         <li>${fmt.format(plan.limits.dossiers)} dossiers par mois</li>
-        <li>Portail client et relances automatiques</li>
+        <li>Portail client et partage WhatsApp</li>
         <li>Vérification IA et dossier scellé</li>
       </ul>
       <button class="btn btn--primary btn--sm" data-plan="${plan.id}">
