@@ -104,24 +104,36 @@ function slug(s) {
     .replace(/^_+|_+$/g, '');
 }
 
+/* États déduits, jamais saisis :
+   scelle     — dossier figé, plus rien à faire
+   attente    — rien n'est encore arrivé
+   incomplet  — il manque une pièce, ou une pièce est à refaire (le client agit)
+   a_valider  — tout est arrivé et conforme, c'est au cabinet de trancher */
+const RECEIVED = ['ok', 'review', 'valide'];
+
 function statusOf(dossier) {
-  const ok = dossier.pieces.filter((p) => p.status === 'ok').length;
-  if (ok === dossier.pieces.length) return 'complet';
-  if (ok === 0 && dossier.pieces.every((p) => p.status === 'wait')) return 'attente';
-  return 'incomplet';
+  if (dossier.sealHash) return 'scelle';
+  const statuses = dossier.pieces.map((p) => p.status);
+  const received = statuses.filter((x) => RECEIVED.includes(x)).length;
+  const blocked = statuses.filter((x) => x === 'ko').length;
+  if (received === 0 && blocked === 0) return 'attente';
+  if (blocked > 0 || received < statuses.length) return 'incomplet';
+  return 'a_valider';
 }
 
 function progressOf(dossier) {
-  const ok = dossier.pieces.filter((p) => p.status === 'ok').length;
-  return { ok, total: dossier.pieces.length, pct: Math.round((ok / dossier.pieces.length) * 100) };
+  const good = dossier.pieces.filter((p) => RECEIVED.includes(p.status)).length;
+  const total = dossier.pieces.length || 1;
+  return { ok: good, total: dossier.pieces.length, pct: Math.round((good / total) * 100) };
 }
 
-function createDossier({ client, email, template, recipient }) {
+function createDossier({ client, email, template, recipient, clientId }) {
   const tpl = templateById(template);
   const now = new Date().toISOString();
   return {
     id: 'd_' + token(8),
     token: token(22),
+    clientId: clientId || null,
     client: String(client).trim(),
     email: String(email).trim(),
     template: tpl.id,
@@ -136,12 +148,102 @@ function createDossier({ client, email, template, recipient }) {
   };
 }
 
+/* ---------- clients ---------- */
+
+function mapClient(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email || '',
+    phone: row.phone || '',
+    dossiers: Number(row.dossiers || 0),
+    enCours: Number(row.en_cours || 0),
+    createdAt: row.created_at
+  };
+}
+
+async function listClients(cabinetId) {
+  let rows;
+  try {
+  ({ rows } = await pool.query(
+    `select c.*, count(d.id)::int as dossiers,
+            count(d.id) filter (where d.seal_hash is null)::int as en_cours
+       from aura.clients c
+       left join aura.dossiers d on d.client_id = c.id
+      where c.cabinet_id = $1
+      group by c.id
+      order by c.name asc`,
+    [cabinetId]
+  ));
+  } catch (err) {
+    if (err.code !== '42P01') throw err;
+    return [];
+  }
+  return rows.map(mapClient);
+}
+
+async function getClient(id, cabinetId) {
+  const { rows } = await pool.query(
+    'select * from aura.clients where id = $1 and cabinet_id = $2', [id, cabinetId]
+  );
+  return rows[0] ? mapClient(rows[0]) : null;
+}
+
+/* Un client est identifié par son email dans le cabinet ; à défaut par son nom.
+   On ne crée jamais de doublon sur une même adresse. */
+async function ensureClient(cabinetId, { name, email, phone }) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const cleanName = String(name || '').trim();
+  const cleanPhone = String(phone || '').trim();
+
+  if (cleanEmail) {
+    const found = await pool.query(
+      'select * from aura.clients where cabinet_id = $1 and lower(email) = $2 limit 1',
+      [cabinetId, cleanEmail]
+    );
+    if (found.rows[0]) {
+      if (cleanPhone && !found.rows[0].phone) {
+        await pool.query('update aura.clients set phone = $2 where id = $1', [found.rows[0].id, cleanPhone]);
+      }
+      return found.rows[0];
+    }
+  } else {
+    const found = await pool.query(
+      "select * from aura.clients where cabinet_id = $1 and lower(name) = lower($2) and coalesce(email, '') = '' limit 1",
+      [cabinetId, cleanName]
+    );
+    if (found.rows[0]) return found.rows[0];
+  }
+
+  try {
+    const inserted = await pool.query(
+      'insert into aura.clients (cabinet_id, name, email, phone) values ($1,$2,$3,$4) returning *',
+      [cabinetId, cleanName, cleanEmail || null, cleanPhone || null]
+    );
+    return inserted.rows[0];
+  } catch (err) {
+    if (err.code === '42P01') {
+      // Table absente : on continue sans fiche client, le dossier reste fonctionnel.
+      return { id: null, name: cleanName, email: cleanEmail, phone: cleanPhone };
+    }
+    if (err.code !== '23505') throw err;
+    const again = await pool.query(
+      'select * from aura.clients where cabinet_id = $1 and lower(email) = $2 limit 1',
+      [cabinetId, cleanEmail]
+    );
+    return again.rows[0];
+  }
+}
+
 /* ---------- lecture ---------- */
 function mapDossier(row, pieces) {
   return {
     id: row.id,
     token: row.token,
     client: row.client,
+    clientId: row.client_id || null,
+    clientName: row.client_name || row.client,
+    clientPhone: row.client_phone || '',
     email: row.email,
     template: row.template,
     recipient: row.recipient || '',
@@ -170,10 +272,23 @@ function mapDossier(row, pieces) {
 }
 
 async function listDossiers(cabinetId) {
-  const { rows } = await pool.query(
-    'select * from aura.dossiers where cabinet_id = $1 order by created_at desc',
-    [cabinetId]
-  );
+  let rows;
+  try {
+    ({ rows } = await pool.query(
+      `select d.*, c.name as client_name, c.phone as client_phone
+         from aura.dossiers d left join aura.clients c on c.id = d.client_id
+        where d.cabinet_id = $1
+        order by d.created_at desc`,
+      [cabinetId]
+    ));
+  } catch (err) {
+    // 42P01 : la table clients n'existe pas encore (migration non passée).
+    if (err.code !== '42P01') throw err;
+    ({ rows } = await pool.query(
+      'select * from aura.dossiers where cabinet_id = $1 order by created_at desc',
+      [cabinetId]
+    ));
+  }
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
   const pieces = await pool.query(
@@ -230,8 +345,8 @@ async function insertDossier(d) {
   try {
     await client.query('begin');
     await client.query(
-      'insert into aura.dossiers (id, token, client, email, template, recipient, cabinet_id) values ($1,$2,$3,$4,$5,$6,$7)',
-      [d.id, d.token, d.client, d.email, d.template, d.recipient || '', d.cabinetId]
+      'insert into aura.dossiers (id, token, client, email, template, recipient, cabinet_id, client_id) values ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [d.id, d.token, d.client, d.email, d.template, d.recipient || '', d.cabinetId, d.clientId || null]
     );
     for (let i = 0; i < d.pieces.length; i++) {
       const p = d.pieces[i];
@@ -368,6 +483,7 @@ async function healthy() {
 module.exports = {
   pool, TEMPLATES, templateById,
   token, slug, statusOf, progressOf, createDossier,
+  mapClient, listClients, getClient, ensureClient,
   listDossiers, countDossiers, getDossier, getDossierById, getByToken, insertDossier,
   updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy, sealDossier
 };

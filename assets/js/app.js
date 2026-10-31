@@ -82,28 +82,26 @@
     var ds = state.dossiers;
     var attente = ds.filter(function (d) { return d.status === 'attente'; }).length;
     var incomplet = ds.filter(function (d) { return d.status === 'incomplet'; }).length;
-    var complet = ds.filter(function (d) { return d.status === 'complet'; }).length;
-    var review = ds.reduce(function (n, d) {
-      return n + d.pieces.filter(function (p) { return p.status === 'review'; }).length;
-    }, 0);
+    var aValider = ds.filter(function (d) { return d.status === 'a_valider'; }).length;
+    var scelles = ds.filter(function (d) { return d.status === 'scelle'; }).length;
 
     $('#stats').innerHTML = [
       { l: 'Dossiers', n: ds.length, c: '' },
-      { l: 'En attente', n: attente, c: '' },
-      { l: 'À vérifier', n: review, c: review ? 'is-warn' : '' },
-      { l: 'Complets', n: complet, c: complet ? 'is-ok' : '' }
+      { l: 'Incomplets', n: incomplet + attente, c: (incomplet + attente) ? 'is-warn' : '' },
+      { l: 'À valider', n: aValider, c: aValider ? 'is-warn' : '' },
+      { l: 'Scellés', n: scelles, c: scelles ? 'is-ok' : '' }
     ].map(function (s) {
       return '<div class="stat-card"><div class="stat-card__l">' + s.l + '</div>' +
         '<div class="stat-card__n ' + s.c + '">' + s.n + '</div></div>';
     }).join('');
 
     $('#dashSub').textContent = ds.length
-      ? ds.length + ' dossier' + (ds.length > 1 ? 's' : '') + ' · ' + incomplet + ' incomplet' + (incomplet > 1 ? 's' : '') + ' · ' + complet + ' prêt' + (complet > 1 ? 's' : '') + ' à exporter'
+      ? ds.length + ' dossier' + (ds.length > 1 ? 's' : '') + ' · ' + aValider + ' à valider · ' + scelles + ' scellé' + (scelles > 1 ? 's' : '')
       : 'Aucun dossier pour l\'instant.';
   }
 
   function statusChip(d) {
-    var map = { attente: 'En attente', incomplet: 'Incomplet', complet: 'Complet' };
+    var map = { attente: 'En attente', incomplet: 'Incomplet', a_valider: 'À valider', scelle: 'Scellé' };
     return '<span class="chip chip--' + d.status + '"><i></i>' + map[d.status] + '</span>';
   }
 
@@ -115,23 +113,50 @@
       return;
     }
 
-    var rows = state.dossiers.map(function (d) {
-      var barClass = d.status === 'complet' ? 'is-ok' : (d.status === 'incomplet' ? 'is-warn' : '');
-      return '<button class="drow" data-id="' + d.id + '">' +
-        '<div class="drow__client"><span class="drow__av">' + initials(d.client) + '</span>' +
-          '<div style="min-width:0"><div class="drow__name">' + esc(d.client) + '</div>' +
-          '<div class="drow__mail">' + esc(d.email) + '</div></div></div>' +
-        '<div class="drow__tpl">' + esc(d.templateName) + '</div>' +
-        '<div class="drow__prog"><div class="drow__bar ' + barClass + '"><i style="width:' + d.progress.pct + '%"></i></div>' +
-          '<div class="drow__count">' + d.progress.ok + '/' + d.progress.total + ' pièces validées</div></div>' +
-        '<div class="drow__date">' + rel(d.lastActivity) + '</div>' +
-        '<div class="drow__status">' + statusChip(d) + '</div>' +
-      '</button>';
-    }).join('');
+    // Le cabinet travaille par client, pas dossier par dossier.
+    var groups = {};
+    var order = [];
+    state.dossiers.forEach(function (d) {
+      var key = d.clientId || ('nom:' + d.client);
+      if (!groups[key]) {
+        groups[key] = { name: d.clientName || d.client, phone: d.clientPhone || '', items: [] };
+        order.push(key);
+      }
+      groups[key].items.push(d);
+    });
+    order.sort(function (a, b) { return groups[a].name.localeCompare(groups[b].name, 'fr'); });
+
+    var html = '';
+    order.forEach(function (key) {
+      var g = groups[key];
+      var enCours = g.items.filter(function (d) { return d.status !== 'scelle'; }).length;
+      html += '<div class="dgroup"><div class="dgroup__head">' +
+        '<span class="dgroup__name">' + esc(g.name) + '</span>' +
+        (g.phone ? '<span class="dgroup__phone">' + esc(g.phone) + '</span>' : '') +
+        '<span class="dgroup__count">' + g.items.length + ' dossier' + (g.items.length > 1 ? 's' : '') +
+        (enCours ? ' · ' + enCours + ' en cours' : ' · tout est scellé') + '</span>' +
+      '</div>';
+      html += g.items.map(function (d) {
+        var barClass = d.status === 'scelle' ? 'is-ok'
+          : d.status === 'incomplet' ? 'is-warn'
+            : d.status === 'a_valider' ? 'is-warn' : '';
+        return '<button class="drow" data-id="' + d.id + '">' +
+          '<div class="drow__client"><span class="drow__av">' + initials(d.client) + '</span>' +
+            '<div style="min-width:0"><div class="drow__name">' + esc(d.templateName) + '</div>' +
+            '<div class="drow__mail">' + esc(d.email) + '</div></div></div>' +
+          '<div class="drow__tpl">' + esc(d.recipient || '—') + '</div>' +
+          '<div class="drow__prog"><div class="drow__bar ' + barClass + '"><i style="width:' + d.progress.pct + '%"></i></div>' +
+            '<div class="drow__count">' + d.progress.ok + '/' + d.progress.total + ' pièces reçues</div></div>' +
+          '<div class="drow__date">' + rel(d.lastActivity) + '</div>' +
+          '<div class="drow__status">' + statusChip(d) + '</div>' +
+        '</button>';
+      }).join('');
+      html += '</div>';
+    });
 
     $('#listWrap').innerHTML =
-      '<div class="dlist"><div class="dlist__head"><span>Client</span><span>Modèle</span>' +
-      '<span>Progression</span><span>Activité</span><span>Statut</span></div>' + rows + '</div>';
+      '<div class="dlist"><div class="dlist__head"><span>Dossier</span><span>Destinataire</span>' +
+      '<span>Progression</span><span>Activité</span><span>Statut</span></div>' + html + '</div>';
 
     $$('.drow').forEach(function (row) {
       row.addEventListener('click', function () { openDrawer(row.dataset.id); });
@@ -145,25 +170,35 @@
 
   /* ---------- détail ---------- */
   function pieceRow(d, p) {
-    var cls = p.status === 'ok' ? 'ok' : p.status === 'ko' ? 'ko' : p.status === 'review' ? 'review' : 'wait';
-    var ico = p.status === 'ok' ? ICON.check : p.status === 'ko' ? ICON.cross : ICON.clock;
-    var tag = p.status === 'ok' ? 'Validé' : p.status === 'ko' ? 'Refusé' : p.status === 'review' ? 'À vérifier' : 'Attendu';
+    var accepted = p.status === 'ok' || p.status === 'valide';
+    var cls = accepted ? 'ok' : p.status === 'ko' ? 'ko' : p.status === 'review' ? 'review' : 'wait';
+    var ico = accepted ? ICON.check : p.status === 'ko' ? ICON.cross : ICON.clock;
+    var tag = p.status === 'valide' ? 'Validé'
+      : p.status === 'ok' ? 'À confirmer'
+        : p.status === 'ko' ? 'À refaire'
+          : p.status === 'review' ? 'À vérifier'
+            : 'Attendu';
     var meta = p.filename
       ? esc(p.filename) + (p.dateDocument ? ' · daté du ' + esc(p.dateDocument) : '')
       : 'Règle : ' + esc(p.rule);
-    var style = p.status === 'ok' ? 'background:var(--green-soft);color:var(--green)'
+    var style = accepted ? 'background:var(--green-soft);color:var(--green)'
       : p.status === 'ko' ? 'background:var(--red-soft);color:#C4304A'
         : p.status === 'review' ? 'background:var(--amber-soft);color:#A5620B'
           : 'background:#F1F3F8;color:#98A0B2';
+
+    var confirmBtn = (!d.sealed && (p.status === 'ok' || p.status === 'review'))
+      ? '<button class="btn btn--ghost btn--xs" data-confirm="' + d.id + '|' + p.key + '">Confirmer</button>'
+      : '';
 
     return '<div class="piece-row">' +
       '<div class="piece-row__st" style="' + style + '">' + ico + '</div>' +
       '<div><div class="piece-row__label">' + esc(p.label) + '</div>' +
         '<div class="piece-row__meta">' + meta + '</div>' +
-        (p.reason && p.status !== 'ok' ? '<div class="piece-row__why ' + (p.status === 'review' ? 'is-review' : '') + '">' + esc(p.reason) + '</div>' : '') +
+        (p.reason && !accepted ? '<div class="piece-row__why ' + (p.status === 'review' ? 'is-review' : '') + '">' + esc(p.reason) + '</div>' : '') +
         (p.filename ? '<a class="piece-row__link" href="/api/files/' + d.id + '/' + p.key + '" target="_blank" rel="noopener">Ouvrir la pièce</a>' : '') +
+        confirmBtn +
       '</div>' +
-      '<span class="chip chip--' + (p.status === 'ok' ? 'ok' : p.status === 'ko' ? 'ko' : p.status === 'review' ? 'review' : 'attente') + '">' + tag + '</span>' +
+      '<span class="chip chip--' + cls + '">' + tag + '</span>' +
     '</div>';
   }
 
@@ -321,6 +356,29 @@
   }
 
   /* ---------- chargement ---------- */
+  /* Confirmation d'une pièce par le cabinet : le seul geste qui vaut validation. */
+  document.addEventListener('click', async function (ev) {
+    var btn = ev.target.closest ? ev.target.closest('[data-confirm]') : null;
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    var parts = btn.getAttribute('data-confirm').split('|');
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      await api('/api/dossiers/' + parts[0] + '/pieces/' + parts[1] + '/confirm', { method: 'POST' });
+      await load();
+      render();
+      openDrawer(parts[0]);
+      toast('Pièce confirmée.');
+    } catch (e) {
+      toast(e.message, true);
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  });
+
   async function load() {
     var data = await api('/api/dossiers');
     state.dossiers = data.dossiers;

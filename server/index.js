@@ -214,6 +214,9 @@ function cabinetDossier(d, base) {
   return {
     id: d.id,
     client: d.client,
+    clientId: d.clientId || null,
+    clientName: d.clientName || d.client,
+    clientPhone: d.clientPhone || '',
     email: d.email,
     template: d.template,
     templateName: store.templateById(d.template).name,
@@ -224,7 +227,7 @@ function cabinetDossier(d, base) {
     lastActivity: d.lastActivity,
     status: store.statusOf(d),
     progress: store.progressOf(d),
-    obstacles: d.pieces.filter((p) => p.status !== 'ok').map((p) => ({
+    obstacles: d.pieces.filter((p) => !['ok', 'review', 'valide'].includes(p.status)).map((p) => ({
       key: p.key, label: p.label, status: p.status, reason: p.reason || ''
     })),
     sealed: d.sealHash ? { hash: d.sealHash, at: d.sealedAt } : null,
@@ -325,6 +328,45 @@ app.get('/api/health', async (req, res) => {
   } catch (err) {
     res.status(503).json({ ok: false, error: err.message });
   }
+});
+
+/* ---------- clients ---------- */
+app.get('/api/clients', requireAuth, async (req, res, next) => {
+  try {
+    res.json({ clients: await store.listClients(req.cabinetId) });
+  } catch (err) { next(err); }
+});
+
+app.get('/api/clients/:id', requireAuth, async (req, res, next) => {
+  try {
+    const client = await store.getClient(req.params.id, req.cabinetId);
+    if (!client) return res.status(404).json({ error: 'Client introuvable.' });
+    const all = await store.listDossiers(req.cabinetId);
+    const base = baseUrl(req);
+    res.json({
+      client,
+      dossiers: all.filter((d) => d.clientId === client.id).map((d) => cabinetDossier(d, base))
+    });
+  } catch (err) { next(err); }
+});
+
+/* Le cabinet confirme une pièce : c'est le seul geste qui vaut validation. */
+app.post('/api/dossiers/:id/pieces/:key/confirm', requireAuth, async (req, res, next) => {
+  try {
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
+    if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
+    if (dossier.sealHash) return res.status(409).json({ error: 'Dossier scellé : plus modifiable.' });
+
+    const piece = dossier.pieces.find((p) => p.key === req.params.key);
+    if (!piece) return res.status(404).json({ error: 'Pièce introuvable.' });
+    if (!['ok', 'review', 'valide'].includes(piece.status)) {
+      return res.status(409).json({ error: 'Cette pièce n’est pas encore déposée.' });
+    }
+
+    await store.updatePiece(dossier.id, piece.key, { status: 'valide', reason: 'Confirmée par le cabinet.' });
+    const fresh = await store.getDossier(dossier.id, req.cabinetId);
+    res.json({ dossier: cabinetDossier(fresh, baseUrl(req)) });
+  } catch (err) { next(err); }
 });
 
 /* ---------- facturation ---------- */
@@ -473,8 +515,10 @@ app.get('/api/dossiers', requireAuth, async (req, res, next) => {
 
 app.post('/api/dossiers', requireAuth, async (req, res, next) => {
   try {
-    const { client, email, template, recipient } = req.body || {};
-    if (!client || String(client).trim().length < 2) return res.status(400).json({ error: 'Nom du client requis.' });
+    const { client, email, phone, template, recipient, clientId } = req.body || {};
+    if (!clientId && (!client || String(client).trim().length < 2)) {
+      return res.status(400).json({ error: 'Nom du client requis.' });
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || ''))) return res.status(400).json({ error: 'Email invalide.' });
     if (!store.templateById(template)) return res.status(400).json({ error: 'Modèle inconnu.' });
 
@@ -493,7 +537,14 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
       });
     }
 
-    const dossier = store.createDossier({ client, email, template, recipient });
+    // Le dossier est toujours rattaché à une fiche client : existante ou créée ici.
+    let clientRow = clientId ? await store.getClient(clientId, req.cabinetId) : null;
+    if (!clientRow) clientRow = await store.ensureClient(req.cabinetId, { name: client, email, phone });
+
+    const dossier = store.createDossier({
+      client: clientRow.name, email: clientRow.email || email, template, recipient,
+      clientId: clientRow.id
+    });
     dossier.cabinetId = req.cabinetId;
     await store.insertDossier(dossier);
     const base = baseUrl(req);
