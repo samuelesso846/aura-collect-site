@@ -99,3 +99,18 @@ begin
     end if;
   end if;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- 6. Fichiers hors base (Supabase Storage)
+-- ---------------------------------------------------------------------------
+-- `content` devient facultatif : le binaire vit dans le compartiment, la base
+-- ne garde que les métadonnées et la clé de l'objet.
+alter table aura.files add column if not exists storage_key text;
+alter table aura.files alter column content drop not null;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'aura_app') then
+    grant select, insert, update, delete on aura.files to aura_app;
+  end if;
+end $$;

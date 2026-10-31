@@ -14,6 +14,7 @@ const seal = require('./lib/seal');
 const fedapay = require('./lib/fedapay');
 const plans = require('./lib/plans');
 const billing = require('./lib/billing');
+const storage = require('./lib/storage');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.PORT || 8788);
@@ -562,6 +563,8 @@ app.get('/api/dossiers/:id/integrity', requireAuth, async (req, res, next) => {
 
 app.get('/api/files/:id/:key', requireAuth, async (req, res, next) => {
   try {
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
+    if (!dossier) return res.status(404).end();
     const file = await store.readFile(req.params.id, req.params.key);
     if (!file) return res.status(404).end();
     res.setHeader('Content-Type', file.mime || 'application/octet-stream');
@@ -670,6 +673,14 @@ app.listen(PORT, () => {
   console.log(`  IA      : ${ai.configured() ? 'Groq / ' + ai.status().model : 'non configurée'}`);
   console.log(`  email   : ${mail.mode() === 'resend' ? 'Resend' : 'journal local (outbox)'}`);
   console.log(`  paiement: ${fedapay.configured() ? 'FedaPay ' + fedapay.ENV : 'non configuré'}`);
+
+  if (storage.enabled()) {
+    storage.ensureBucket()
+      .then(() => console.log(`  stockage: Supabase Storage / ${storage.BUCKET}`))
+      .catch((err) => console.warn('[aura] stockage indisponible, repli en base :', err.message));
+  } else {
+    console.log('  stockage: base de données (SUPABASE_URL non configurée)');
+  }
 
   billing.ensureCabinet()
     .then((cabinet) => {

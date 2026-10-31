@@ -1,7 +1,9 @@
 'use strict';
 /* Accès aux données : PostgreSQL (Supabase), schéma `aura`.
-   Les fichiers sont stockés dans aura.files (bytea) — aucune URL publique. */
+   Les pièces vivent dans Supabase Storage (compartiment privé) ; la base ne garde
+   que les métadonnées. Repli sur aura.files (bytea) si le stockage n'est pas configuré. */
 const crypto = require('crypto');
+const storage = require('./storage');
 const { Pool } = require('pg');
 
 const pool = new Pool({
@@ -267,22 +269,66 @@ async function touch(dossierId) {
   await pool.query('update aura.dossiers set last_activity = now() where id = $1', [dossierId]);
 }
 
+function extOf(mime) {
+  if (mime === 'application/pdf') return '.pdf';
+  if (mime === 'image/png') return '.png';
+  if (mime === 'image/webp') return '.webp';
+  return '.jpg';
+}
+
 async function saveFile(dossierId, pieceKey, file) {
-  await pool.query(
-    `insert into aura.files (dossier_id, piece_key, name, mime, size, content)
-     values ($1,$2,$3,$4,$5,$6)
-     on conflict (dossier_id, piece_key) do update
-       set name = excluded.name, mime = excluded.mime, size = excluded.size, content = excluded.content`,
-    [dossierId, pieceKey, file.name, file.mime, file.size, file.buffer]
-  );
+  let content = file.buffer;
+  let storageKey = null;
+
+  if (storage.enabled()) {
+    storageKey = `dossiers/${dossierId}/${pieceKey}${extOf(file.mime)}`;
+    await storage.put(storageKey, file.buffer, file.mime);
+    content = null; // le binaire ne touche plus la base
+  }
+
+  try {
+    await pool.query(
+      `insert into aura.files (dossier_id, piece_key, name, mime, size, content, storage_key)
+       values ($1,$2,$3,$4,$5,$6,$7)
+       on conflict (dossier_id, piece_key) do update
+         set name = excluded.name, mime = excluded.mime, size = excluded.size,
+             content = excluded.content, storage_key = excluded.storage_key`,
+      [dossierId, pieceKey, file.name, file.mime, file.size, content, storageKey]
+    );
+  } catch (err) {
+    // 42703 = colonne absente : le schéma n'a pas encore la section stockage.
+    if (err.code !== '42703') throw err;
+    await pool.query(
+      `insert into aura.files (dossier_id, piece_key, name, mime, size, content)
+       values ($1,$2,$3,$4,$5,$6)
+       on conflict (dossier_id, piece_key) do update
+         set name = excluded.name, mime = excluded.mime, size = excluded.size, content = excluded.content`,
+      [dossierId, pieceKey, file.name, file.mime, file.size, file.buffer]
+    );
+  }
 }
 
 async function readFile(dossierId, pieceKey) {
-  const { rows } = await pool.query(
-    'select name, mime, size, content from aura.files where dossier_id = $1 and piece_key = $2',
-    [dossierId, pieceKey]
-  );
-  return rows[0] || null;
+  let rows;
+  try {
+    ({ rows } = await pool.query(
+      'select name, mime, size, content, storage_key from aura.files where dossier_id = $1 and piece_key = $2',
+      [dossierId, pieceKey]
+    ));
+  } catch (err) {
+    if (err.code !== '42703') throw err;
+    ({ rows } = await pool.query(
+      'select name, mime, size, content from aura.files where dossier_id = $1 and piece_key = $2',
+      [dossierId, pieceKey]
+    ));
+  }
+  const row = rows[0];
+  if (!row) return null;
+  if (row.storage_key) {
+    const buffer = await storage.get(row.storage_key);
+    return { name: row.name, mime: row.mime, size: row.size, content: buffer, storageKey: row.storage_key };
+  }
+  return row;
 }
 
 async function sealDossier(id, hash, sealedAt, manifest) {
