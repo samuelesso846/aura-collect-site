@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Abonnement — Aura Collect</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aura.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .bill-hero{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:22px}
+  .bill-hero__row{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .bill-hero__state{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:650;
+    padding:6px 11px;border-radius:100px;background:var(--teal-soft);color:#0A8F7C}
+  .bill-hero__state.is-warn{background:var(--amber-soft);color:#A5620B}
+  .bill-hero__state.is-off{background:var(--red-soft);color:#B3253F}
+  .bill-hero__state i{width:6px;height:6px;border-radius:50%;background:currentColor}
+  .bill-hero__meta{font-size:12px;color:var(--muted);margin-left:auto;text-align:right;line-height:1.5}
+  .bill-hero__meta b{display:block;color:var(--ink-3);font-size:13px}
+  .bill-toggle{display:inline-flex;background:#F4F5FA;border:1px solid var(--line);border-radius:100px;padding:3px;margin-bottom:18px}
+  .bill-toggle button{border:0;background:none;font:inherit;font-size:12px;font-weight:600;color:var(--muted);
+    padding:7px 16px;border-radius:100px;cursor:pointer}
+  .bill-toggle button.is-on{background:#fff;color:var(--ink-3);box-shadow:0 1px 3px rgba(16,18,40,.09)}
+  .bill-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .bill-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;position:relative}
+  .bill-card.is-current{border-color:#C9BEF7;box-shadow:0 0 0 3px rgba(107,75,255,.07)}
+  .bill-card__tag{position:absolute;top:16px;right:16px;font-size:10px;font-weight:650;letter-spacing:.06em;
+    text-transform:uppercase;color:#6B4BFF;background:#F1EDFF;border-radius:100px;padding:4px 9px}
+  .bill-card h3{font-size:15px;letter-spacing:-.02em}
+  .bill-card__aud{font-size:11.5px;color:var(--muted);margin-top:3px;min-height:30px}
+  .bill-card__price{font-size:27px;font-weight:700;letter-spacing:-.045em;margin-top:8px;line-height:1}
+  .bill-card__price span{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:0}
+  .bill-card ul{list-style:none;margin:16px 0 18px;padding:0;display:grid;gap:8px}
+  .bill-card li{font-size:12px;color:var(--slate);padding-left:18px;position:relative;line-height:1.45}
+  .bill-card li::before{content:"";position:absolute;left:0;top:6px;width:9px;height:9px;border-radius:50%;
+    background:var(--teal-soft);box-shadow:inset 0 0 0 2px #0A8F7C}
+  .bill-card .btn{width:100%;justify-content:center}
+  .bill-card .btn[disabled]{opacity:.5;cursor:not-allowed}
+  .bill-note{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:18px;max-width:760px}
+  .bill-table{width:100%;border-collapse:collapse;font-size:12px}
+  .bill-table th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+    font-weight:650;padding:0 10px 9px}
+  .bill-table td{padding:10px;border-top:1px solid var(--line);color:var(--slate)}
+  .bill-table .st{font-weight:600}
+  .bill-table .st--approved{color:var(--green)}
+  .bill-table .st--pending{color:#C4720F}
+  .bill-table .st--declined,.bill-table .st--canceled{color:#B3253F}
+  .bill-empty{font-size:12px;color:var(--muted);padding:14px 0}
+  .bill-sec{margin-top:30px}
+  .bill-sec h2{font-size:15px;letter-spacing:-.02em;margin-bottom:12px}
+  @media (max-width:820px){.bill-grid{grid-template-columns:1fr}.bill-hero__meta{margin-left:0;text-align:left}}
+</style>
+</head>
+<body class="admin">
+
+<header class="admin-top">
+  <a class="brand" href="index.html">
+    <span class="brand__mark" style="width:28px;height:28px;flex:0 0 28px;font-size:13px">A</span>
+    <span>Aura Collect</span>
+  </a>
+  <div class="admin-top__cabinet">
+    <b id="cabinetName">Cabinet</b>
+    Abonnement
+  </div>
+  <div class="admin-top__right">
+    <a class="btn btn--ghost btn--sm" href="app">Mes dossiers</a>
+    <a class="btn btn--ghost btn--sm" href="index.html">Site</a>
+  </div>
+</header>
+
+<main class="admin-main">
+  <div class="page-head">
+    <div>
+      <span class="eyebrow">Facturation</span>
+      <h1>Votre abonnement</h1>
+      <p>Paiement par carte bancaire ou Mobile Money, en FCFA, via FedaPay.</p>
+    </div>
+  </div>
+
+  <section class="bill-hero" id="heroCard">
+    <div class="bill-hero__row">
+      <span class="bill-hero__state" id="stateChip"><i></i><span>Chargement…</span></span>
+      <div class="bill-hero__meta" id="heroMeta"></div>
+    </div>
+  </section>
+
+  <div class="bill-toggle" id="cycleToggle">
+    <button data-months="1" class="is-on">Mensuel</button>
+    <button data-months="12">Annuel — 2 mois offerts</button>
+  </div>
+
+  <div class="bill-grid" id="planGrid"></div>
+
+  <p class="bill-note">
+    Aura Collect fonctionne en <b>cycles prépayés</b> : chaque paiement ouvre la période choisie, sans prélèvement
+    automatique sur votre carte. Un rappel est envoyé avant l'échéance, et l'accès reste ouvert
+    <span id="graceDays">7</span> jours de grâce après la date de fin. Le paiement est traité par FedaPay ;
+    Aura Collect ne stocke aucune donnée bancaire.
+  </p>
+
+  <section class="bill-sec" id="historySection">
+    <h2>Historique des paiements</h2>
+    <div id="historyBox"><p class="bill-empty">Chargement…</p></div>
+  </section>
+</main>
+
+<script src="assets/js/billing.js"></script>
+</body>
+</html>

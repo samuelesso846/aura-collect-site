@@ -11,6 +11,9 @@ const ai = require('./lib/ai');
 const mail = require('./lib/mail');
 const archive = require('./lib/archive');
 const seal = require('./lib/seal');
+const fedapay = require('./lib/fedapay');
+const plans = require('./lib/plans');
+const billing = require('./lib/billing');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.PORT || 8788);
@@ -27,6 +30,53 @@ if (!process.env.DATABASE_URL) console.warn('[aura] DATABASE_URL absent : la bas
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+
+/* ---------- webhook FedaPay ----------
+   Monté avant express.json() : la signature porte sur le corps brut, un JSON déjà parsé ne
+   permet plus de la vérifier. Réponse 2xx immédiate, traitement en arrière-plan. */
+app.post('/api/billing/webhook', express.raw({ type: '*/*', limit: '256kb' }), (req, res) => {
+  const secret = process.env.FEDAPAY_WEBHOOK_SECRET || '';
+  if (!secret) {
+    console.warn('[billing] FEDAPAY_WEBHOOK_SECRET absent : webhook refusé.');
+    return res.status(503).json({ error: 'Webhook non configuré.' });
+  }
+  if (!fedapay.verifySignature(req.body, req.headers['x-fedapay-signature'], secret)) {
+    console.warn('[billing] signature webhook invalide.');
+    return res.status(400).json({ error: 'Signature invalide.' });
+  }
+  let event;
+  try {
+    event = JSON.parse(Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body));
+  } catch (_) {
+    return res.status(400).json({ error: 'Charge utile invalide.' });
+  }
+  res.json({ received: true });
+
+  const name = event.name || event.type || '';
+  const object = event.object || event.data || {};
+  const txId = object.id || event.object_id || null;
+
+  setImmediate(async () => {
+    try {
+      if (!(await billing.recordEvent(name, txId, event))) return;
+      if (name === 'transaction.approved') {
+        const payment = await billing.approveOnce(txId, event);
+        if (!payment) {
+          console.warn('[billing] paiement inconnu ou déjà crédité :', txId);
+          return;
+        }
+        const cabinet = await billing.grantPeriod(payment.cabinet_id, payment.months, payment.plan);
+        console.log(`[billing] ${name} → cabinet ${cabinet.id} en ${payment.plan} jusqu’au ${cabinet.paid_until}`);
+      } else if (name === 'transaction.declined' || name === 'transaction.canceled') {
+        await billing.markPayment(txId, name === 'transaction.declined' ? 'declined' : 'canceled', event);
+        console.log(`[billing] ${name} sur la transaction ${txId}`);
+      }
+    } catch (err) {
+      console.error('[billing] traitement webhook :', err.message);
+    }
+  });
+});
+
 app.use(express.json({ limit: '200kb' }));
 
 /* ---------- session ---------- */
@@ -192,6 +242,89 @@ app.get('/api/health', async (req, res) => {
   } catch (err) {
     res.status(503).json({ ok: false, error: err.message });
   }
+});
+
+/* ---------- facturation ---------- */
+app.get('/api/billing/plans', (req, res) => {
+  res.json({
+    plans: plans.publicList(),
+    currency: 'XOF',
+    billing: {
+      cycle: 'prepaid',
+      renewal: 'manual',
+      graceDays: billing.GRACE_DAYS,
+      trialDays: billing.TRIAL_DAYS
+    },
+    payment: { provider: 'fedapay', mode: fedapay.ENV, configured: fedapay.configured() }
+  });
+});
+
+app.get('/api/billing', requireAuth, async (req, res, next) => {
+  try {
+    const cabinet = await billing.ensureCabinet();
+    res.json({
+      cabinet: { id: cabinet.id, name: cabinet.name, email: cabinet.email },
+      access: billing.accessOf(cabinet),
+      payments: await billing.recentPayments(cabinet.id)
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/api/billing/checkout', requireAuth, async (req, res, next) => {
+  try {
+    if (!fedapay.configured()) return res.status(503).json({ error: 'Le paiement n’est pas encore configuré.' });
+
+    const planId = String(req.body.plan || '').toLowerCase();
+    const months = Number(req.body.months || 1);
+    const amount = plans.amountFor(planId, months);
+    if (!amount) return res.status(400).json({ error: 'Offre ou durée invalide.' });
+
+    const cabinet = await billing.ensureCabinet();
+    const email = cabinet.email || process.env.CABINET_EMAIL || '';
+    if (!email) return res.status(400).json({ error: 'Renseignez l’email de facturation du cabinet avant de souscrire.' });
+
+    const payment = await billing.createPayment({ cabinetId: cabinet.id, plan: planId, months, amount });
+    const base = process.env.PUBLIC_BASE_URL || DEFAULT_BASE;
+
+    const checkout = await fedapay.createCheckout({
+      amount,
+      description: `Aura Collect — ${plans.get(planId).label}, ${months} mois`,
+      customer: {
+        email,
+        firstname: (cabinet.name || 'Cabinet').slice(0, 40),
+        lastname: 'Aura Collect'
+      },
+      callbackUrl: `${base}/api/billing/callback?p=${payment.id}`,
+      metadata: { payment_id: payment.id, cabinet_id: cabinet.id, plan: planId, months }
+    });
+
+    await billing.attachCheckout(payment.id, checkout);
+    res.json({ url: checkout.url, reference: checkout.reference, amount, currency: 'XOF', months, plan: planId });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* Retour navigateur après paiement : ne fait jamais foi seul, mais rattrape un webhook manqué. */
+app.get('/api/billing/callback', async (req, res) => {
+  try {
+    const transactionId = req.query.id || req.query.transaction_id;
+    if (transactionId && fedapay.configured()) {
+      const tx = await fedapay.getTransaction(transactionId);
+      if (tx && tx.status === 'approved') {
+        const payment = await billing.approveOnce(tx.id, tx);
+        if (payment) {
+          await billing.grantPeriod(payment.cabinet_id, payment.months, payment.plan);
+          console.log(`[billing] accès prolongé via retour navigateur (transaction ${tx.id})`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[billing] retour paiement :', err.message);
+  }
+  res.redirect('/app?billing=retour');
 });
 
 /* ---------- dossiers (cabinet) ---------- */
@@ -408,4 +541,14 @@ app.listen(PORT, () => {
   console.log(`  base    : ${process.env.DATABASE_URL ? 'Supabase Postgres' : 'NON CONFIGURÉE'}`);
   console.log(`  IA      : ${ai.configured() ? 'Groq / ' + ai.status().model : 'non configurée'}`);
   console.log(`  email   : ${mail.mode() === 'resend' ? 'Resend' : 'journal local (outbox)'}`);
+  console.log(`  paiement: ${fedapay.configured() ? 'FedaPay ' + fedapay.ENV : 'non configuré'}`);
+
+  billing.ensureCabinet()
+    .then((cabinet) => {
+      const access = billing.accessOf(cabinet);
+      console.log(`  cabinet : ${cabinet.name} — ${access.state} (${access.daysLeft} j)`);
+    })
+    .catch((err) => {
+      console.warn('[aura] facturation indisponible — exécutez server/sql/billing.sql :', err.message);
+    });
 });
