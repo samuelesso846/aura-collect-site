@@ -13,8 +13,6 @@ Il inclut une **démo fonctionnelle** du parcours cabinet → client, utilisable
 | `index.html` | Page d'accueil : promesse, coût du problème, 3 piliers, parcours, validation IA, modèles, tarifs, FAQ |
 | `tarifs.html` | Offres détaillées, tableau comparatif, calculateur de ROI interactif |
 | `contact.html` | Demande de démo (formulaire sans backend : prépare un email) |
-| `demo.html` | Tableau de bord cabinet : création de dossier, pipeline, fiche dossier, aperçu d'export |
-| `portail.html` | Portail client mobile : dépôt de pièces, verdict IA simulé, progression |
 | `legal.html` | Mentions légales, RGPD, sous-traitants (champs à compléter) |
 | `assets/css/aura.css` | Design system complet (couleurs, composants, responsive) |
 | `assets/js/store.js` | État partagé de la démo (localStorage) + modèles de pièces |
