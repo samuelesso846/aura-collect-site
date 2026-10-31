@@ -8,13 +8,19 @@ alter table aura.cabinets add column if not exists password_hash text;
 alter table aura.dossiers add column if not exists cabinet_id uuid references aura.cabinets(id) on delete cascade;
 create index if not exists dossiers_cabinet_idx on aura.dossiers (cabinet_id, created_at desc);
 
--- 3. Les dossiers déjà présents sont rattachés au cabinet le plus ancien.
-update aura.dossiers d
-   set cabinet_id = c.id
-  from (select id from aura.cabinets order by created_at asc limit 1) c
- where d.cabinet_id is null;
+-- 3. Les dossiers déjà présents restent rattachés à votre cabinet historique.
+update aura.dossiers
+   set cabinet_id = (select id from aura.cabinets order by created_at asc limit 1)
+ where cabinet_id is null;
 
--- 4. Droits du rôle applicatif sur la nouvelle colonne (aucun changement de table).
+-- 4. Votre accès existant reçoit l'email de connexion.
+--    Le mot de passe actuel du cabinet continue de fonctionner tant qu'aucun
+--    mot de passe personnel n'a été défini.
+update aura.cabinets
+   set email = lower('samuelesso846@gmail.com')
+ where id = (select id from aura.cabinets order by created_at asc limit 1);
+
+-- 5. Droits du rôle applicatif.
 do $$
 begin
   if exists (select 1 from pg_roles where rolname = 'aura_app') then
