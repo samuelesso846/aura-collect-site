@@ -640,7 +640,7 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
       at: new Date().toISOString()
     });
 
-    const fresh = await store.getDossier(dossier.id);
+    const fresh = await store.getDossierById(dossier.id);
     res.json({
       piece: { key: piece.key, status: verdict.status, reason: verdict.reason, dateDocument: verdict.dateDocument },
       dossier: publicDossier(fresh)

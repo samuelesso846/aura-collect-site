@@ -215,6 +215,15 @@ async function getByToken(tokenValue) {
   return mapDossier(rows[0], pieces.rows);
 }
 
+/* Lecture libre par identifiant : réservée aux flux déjà authentifiés par un secret
+   (lien client à token). Ne jamais l'utiliser depuis une route d'espace cabinet. */
+async function getDossierById(id) {
+  const { rows } = await pool.query('select * from aura.dossiers where id = $1', [id]);
+  if (!rows.length) return null;
+  const pieces = await pool.query('select * from aura.pieces where dossier_id = $1 order by position', [id]);
+  return mapDossier(rows[0], pieces.rows);
+}
+
 /* ---------- écriture ---------- */
 async function insertDossier(d) {
   const client = await pool.connect();
@@ -359,6 +368,6 @@ async function healthy() {
 module.exports = {
   pool, TEMPLATES, templateById,
   token, slug, statusOf, progressOf, createDossier,
-  listDossiers, countDossiers, getDossier, getByToken, insertDossier,
+  listDossiers, countDossiers, getDossier, getDossierById, getByToken, insertDossier,
   updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy, sealDossier
 };
