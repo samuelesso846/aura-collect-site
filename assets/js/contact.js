@@ -14,7 +14,7 @@
   var offre = params.get('offre');
   var msg = document.getElementById('message');
   if (offre && msg && !msg.value) {
-    var labels = { starter: 'Starter (50 000 FCFA/mois)', pro: 'Pro (95 000 FCFA/mois)', cabinet: 'Cabinet (160 000 FCFA/mois)' };
+    var labels = { starter: 'Starter (20 000 FCFA/mois)', pro: 'Pro (55 000 FCFA/mois)', cabinet: 'Cabinet (130 000 FCFA/mois)' };
     msg.value = 'Offre qui m\'intéresse : ' + (labels[offre] || offre) + '\n\nPièces demandées aujourd\'hui : ';
   }
 

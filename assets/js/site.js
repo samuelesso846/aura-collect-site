@@ -67,7 +67,7 @@
       });
       notes.forEach(function (n) {
         if (mode === 'yearly') {
-          var total = { '50000': 500000, '95000': 950000, '160000': 1600000 };
+          var total = { '20000': 200000, '55000': 550000, '130000': 1300000 };
           var monthly = n.closest('.plan') && n.closest('.plan').querySelector('.plan__amount');
           var key = monthly && monthly.dataset ? monthly.dataset.monthly : '';
           n.textContent = total[key]
