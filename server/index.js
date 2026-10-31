@@ -67,9 +67,17 @@ app.post('/api/billing/webhook', express.raw({ type: '*/*', limit: '256kb' }), (
         }
         const cabinet = await billing.grantPeriod(payment.cabinet_id, payment.months, payment.plan);
         console.log(`[billing] ${name} → cabinet ${cabinet.id} en ${payment.plan} jusqu’au ${cabinet.paid_until}`);
-      } else if (name === 'transaction.declined' || name === 'transaction.canceled') {
-        await billing.markPayment(txId, name === 'transaction.declined' ? 'declined' : 'canceled', event);
-        console.log(`[billing] ${name} sur la transaction ${txId}`);
+      } else if (name === 'transaction.declined' || name === 'transaction.canceled' || name === 'transaction.expired') {
+        const status = name === 'transaction.declined' ? 'declined'
+          : name === 'transaction.expired' ? 'expired' : 'canceled';
+        const payment = await billing.expireIfPending(txId, status, event);
+        console.log(`[billing] ${name} sur la transaction ${txId}${payment ? '' : ' (déjà traité, sans effet)'}`);
+      } else if (name === 'transaction.refunded') {
+        const payment = await billing.markPayment(txId, 'refunded', event);
+        if (payment) {
+          const cabinet = await billing.revokeAccess(payment.cabinet_id);
+          console.log(`[billing] remboursement ${txId} → accès repris pour le cabinet ${cabinet.id}`);
+        }
       }
     } catch (err) {
       console.error('[billing] traitement webhook :', err.message);

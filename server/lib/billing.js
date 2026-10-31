@@ -117,6 +117,34 @@ async function markPayment(transactionId, status, raw) {
   return rows[0] || null;
 }
 
+/* Une transaction jamais payée ne doit pas rester indéfiniment « pending ».
+   On ne touche qu'aux paiements encore en attente. */
+async function expireIfPending(transactionId, status, raw) {
+  const rows = await q(
+    `update aura.payments
+        set status = $2, raw = coalesce($3, raw), updated_at = now()
+      where fedapay_transaction_id = $1 and status = 'pending'
+      returning *`,
+    [transactionId, status, raw || null]
+  );
+  return rows[0] || null;
+}
+
+/* Remboursement : la période accordée est reprise immédiatement.
+   Un remboursement partiel ou commercial se rattrape à la main depuis le back-office. */
+async function revokeAccess(cabinetId) {
+  const rows = await q(
+    `update aura.cabinets
+        set paid_until = least(coalesce(paid_until, now()), now()),
+            plan_status = 'suspended',
+            updated_at = now()
+      where id = $1
+      returning *`,
+    [cabinetId]
+  );
+  return rows[0] || null;
+}
+
 /* Journal des événements webhook : la contrainte unique (name, object_id) sert d'anti-doublon. */
 async function recordEvent(name, objectId, payload) {
   const rows = await q(
@@ -139,5 +167,6 @@ async function recentPayments(cabinetId, limit = 20) {
 
 module.exports = {
   ensureCabinet, accessOf, createPayment, attachCheckout, paymentByTransaction,
-  grantPeriod, approveOnce, markPayment, recordEvent, recentPayments, GRACE_DAYS, TRIAL_DAYS
+  grantPeriod, approveOnce, markPayment, expireIfPending, revokeAccess,
+  recordEvent, recentPayments, GRACE_DAYS, TRIAL_DAYS
 };
