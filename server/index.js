@@ -16,7 +16,7 @@ const PORT = Number(process.env.PORT || 8788);
 const CABINET = process.env.CABINET_NAME || 'Cabinet Lemaire & Associés';
 const PASSWORD = process.env.CABINET_PASSWORD || 'aura-demo';
 const SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
-const PUBLIC_BASE = (process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+const DEFAULT_BASE = `http://localhost:${PORT}`;
 const MAX_MB = 15;
 
 if (!process.env.CABINET_PASSWORD) console.warn('[aura] CABINET_PASSWORD absent : mot de passe de démonstration « aura-demo ».');
@@ -95,7 +95,14 @@ function publicDossier(d) {
   };
 }
 
-function cabinetDossier(d) {
+function baseUrl(req) {
+  if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, '');
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  return host ? proto + '://' + host : DEFAULT_BASE;
+}
+
+function cabinetDossier(d, base) {
   return {
     id: d.id,
     client: d.client,
@@ -103,7 +110,7 @@ function cabinetDossier(d) {
     template: d.template,
     templateName: store.templateById(d.template).name,
     token: d.token,
-    link: PUBLIC_BASE + '/p/' + d.token,
+    link: (base || DEFAULT_BASE) + '/p/' + d.token,
     createdAt: d.createdAt,
     lastActivity: d.lastActivity,
     status: store.statusOf(d),
@@ -182,7 +189,8 @@ app.get('/api/templates', requireAuth, (req, res) => {
 
 app.get('/api/dossiers', requireAuth, async (req, res, next) => {
   try {
-    const dossiers = (await store.listDossiers()).map(cabinetDossier);
+    const base = baseUrl(req);
+    const dossiers = (await store.listDossiers()).map((d) => cabinetDossier(d, base));
     res.json({ dossiers, cabinet: CABINET });
   } catch (err) { next(err); }
 });
@@ -196,10 +204,11 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
 
     const dossier = store.createDossier({ client, email, template });
     await store.insertDossier(dossier);
-    const entry = await mail.sendMagicLink(dossier);
+    const base = baseUrl(req);
+    const entry = await mail.sendMagicLink(dossier, base);
 
     res.status(201).json({
-      dossier: cabinetDossier(dossier),
+      dossier: cabinetDossier(dossier, base),
       mail: { mode: entry.mode, status: entry.status }
     });
   } catch (err) { next(err); }
@@ -211,7 +220,7 @@ app.post('/api/dossiers/:id/remind', requireAuth, async (req, res, next) => {
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
     const missing = dossier.pieces.filter((p) => p.status !== 'ok').length;
     if (!missing) return res.status(400).json({ error: 'Le dossier est déjà complet.' });
-    const entry = await mail.sendReminder(dossier, missing);
+    const entry = await mail.sendReminder(dossier, missing, baseUrl(req));
     res.json({ ok: true, mail: { mode: entry.mode, status: entry.status }, missing });
   } catch (err) { next(err); }
 });

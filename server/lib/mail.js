@@ -50,12 +50,12 @@ async function send({ to, subject, text, dossierId }) {
   return entry;
 }
 
-function portalLink(token) {
-  return BASE.replace(/\/$/, '') + '/p/' + token;
+function portalLink(token, base) {
+  return String(base || BASE).replace(/\/$/, '') + '/p/' + token;
 }
 
-async function sendMagicLink(dossier) {
-  const link = portalLink(dossier.token);
+async function sendMagicLink(dossier, base) {
+  const link = portalLink(dossier.token, base);
   return send({
     to: dossier.email,
     subject: 'Vos documents à déposer — ' + (process.env.CABINET_NAME || 'votre cabinet'),
@@ -76,7 +76,7 @@ async function sendMagicLink(dossier) {
   });
 }
 
-async function sendReminder(dossier, missing) {
+async function sendReminder(dossier, missing, base) {
   return send({
     to: dossier.email,
     subject: 'Il manque ' + missing + ' document' + (missing > 1 ? 's' : '') + ' à votre dossier',
@@ -86,7 +86,7 @@ async function sendReminder(dossier, missing) {
       'Votre dossier n\'est pas encore complet : il manque ' + missing + ' pièce' + (missing > 1 ? 's' : '') + '.',
       'Vous pouvez les déposer en deux minutes depuis ce lien :',
       '',
-      portalLink(dossier.token),
+      portalLink(dossier.token, base),
       '',
       'Merci.'
     ].join('\n'),
