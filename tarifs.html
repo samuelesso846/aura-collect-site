@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tarifs — Aura Collect</title>
-<meta name="description" content="Trois offres simples : Starter 79 €, Pro 149 €, Cabinet 249 € par mois. Sans engagement. Calculez le temps que vous récupérez.">
+<meta name="description" content="Trois offres simples : Starter 50 000 FCFA, Pro 95 000 FCFA, Cabinet 160 000 FCFA par mois. Sans engagement. Calculez le temps que vous récupérez.">
 <meta name="theme-color" content="#F7F8FC">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,7 +49,7 @@
   <div class="container">
     <span class="eyebrow">Tarifs</span>
     <h1>Le prix d'une heure de relance, <em>par mois</em>.</h1>
-    <p class="lede">Une offre qui démarre à 79 € — moins qu'une heure de votre temps facturé. Sans engagement, sans frais de mise en service, premier dossier offert.</p>
+    <p class="lede">Une offre qui démarre à 50 000 FCFA — moins qu'une heure de votre temps facturé. Sans engagement, sans frais de mise en service, premier dossier offert.</p>
   </div>
 </section>
 
@@ -66,7 +66,7 @@
       <div class="plan">
         <div class="plan__name">Starter</div>
         <div class="plan__desc">Pour valider le flux sur vos premiers dossiers, sans risque.</div>
-        <div class="plan__price"><span class="plan__amount" data-monthly="79" data-yearly="63">79 €</span><span class="plan__period">/ mois</span></div>
+        <div class="plan__price"><span class="plan__amount" data-monthly="50000" data-yearly="42000">50 000</span><span class="plan__cur">FCFA</span><span class="plan__period">/ mois</span></div>
         <div class="plan__note" data-note></div>
         <ul class="plan__list">
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>25 dossiers actifs par mois</li>
@@ -82,7 +82,7 @@
         <span class="plan__tag">Le plus choisi</span>
         <div class="plan__name">Pro</div>
         <div class="plan__desc">Le quotidien d'un cabinet : volume, relances, validation IA.</div>
-        <div class="plan__price"><span class="plan__amount" data-monthly="149" data-yearly="119">149 €</span><span class="plan__period">/ mois</span></div>
+        <div class="plan__price"><span class="plan__amount" data-monthly="95000" data-yearly="79000">95 000</span><span class="plan__cur">FCFA</span><span class="plan__period">/ mois</span></div>
         <div class="plan__note" data-note></div>
         <ul class="plan__list">
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Dossiers illimités</li>
@@ -97,7 +97,7 @@
       <div class="plan">
         <div class="plan__name">Cabinet</div>
         <div class="plan__desc">Plusieurs collaborateurs, votre marque, vos modèles.</div>
-        <div class="plan__price"><span class="plan__amount" data-monthly="249" data-yearly="199">249 €</span><span class="plan__period">/ mois</span></div>
+        <div class="plan__price"><span class="plan__amount" data-monthly="160000" data-yearly="133000">160 000</span><span class="plan__cur">FCFA</span><span class="plan__period">/ mois</span></div>
         <div class="plan__note" data-note></div>
         <ul class="plan__list">
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Tout le plan Pro</li>
@@ -135,22 +135,22 @@
             <input type="range" id="roiDossiers" min="10" max="200" step="5" value="40">
           </div>
           <div class="field" style="margin-bottom:22px">
-            <label for="roiTaux">Valeur d'une heure de votre équipe — <span class="roi__val" id="roiTauxVal">45 €</span></label>
-            <input type="range" id="roiTaux" min="20" max="120" step="5" value="45">
+            <label for="roiTaux">Valeur d'une heure de votre équipe — <span class="roi__val" id="roiTauxVal">30 000 FCFA</span></label>
+            <input type="range" id="roiTaux" min="5000" max="75000" step="2500" value="30000">
           </div>
           <div class="field" style="margin-bottom:0">
             <label for="roiOffre">Offre envisagée</label>
             <select id="roiOffre">
-              <option value="79">Starter — 79 € / mois</option>
-              <option value="149" selected>Pro — 149 € / mois</option>
-              <option value="249">Cabinet — 249 € / mois</option>
+              <option value="50000">Starter — 50 000 FCFA / mois</option>
+              <option value="95000" selected>Pro — 95 000 FCFA / mois</option>
+              <option value="160000">Cabinet — 160 000 FCFA / mois</option>
             </select>
           </div>
         </div>
         <div class="roi__out">
           <div class="roi__out-l">Temps récupéré</div>
           <div class="roi__out-n"><span id="roiHeures">24</span><span> h / mois</span></div>
-          <div class="roi__out-s" id="roiGain">Soit 1 080 € de temps, pour 149 € d'abonnement. Gain net : 931 € par mois.</div>
+          <div class="roi__out-s" id="roiGain">Soit 720 000 FCFA de temps, pour 95 000 FCFA d'abonnement. Gain net : 625 000 FCFA par mois.</div>
           <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.15);font-size:11px;color:#A9B0C6;line-height:1.5">
             Hypothèse : 3 relances par dossier, 12 min par relance. Ajustez selon vos volumes réels.
           </div>
@@ -229,7 +229,7 @@
       </details>
       <details>
         <summary>Proposez-vous l'installation clé en main ?</summary>
-        <p>Oui. Le pack « Installation &amp; Automatisation » comprend la reprise de vos modèles, le paramétrage des règles de validité, la personnalisation à votre marque et une session de prise en main avec votre équipe. Il est proposé entre 1 500 € et 2 500 € selon le nombre de modèles. Il est inclus dans l'offre Cabinet pour un engagement annuel.</p>
+        <p>Oui. Le pack « Installation &amp; Automatisation » comprend la reprise de vos modèles, le paramétrage des règles de validité, la personnalisation à votre marque et une session de prise en main avec votre équipe. Il est proposé entre 1 000 000 et 1 600 000 FCFA selon le nombre de modèles. Il est inclus dans l'offre Cabinet pour un engagement annuel.</p>
       </details>
       <details>
         <summary>Comment se passe le paiement ?</summary>
@@ -320,11 +320,11 @@
     var valeur = heures * taux;
     var net = valeur - plan;
     document.getElementById('roiDossiersVal').textContent = dossiers;
-    document.getElementById('roiTauxVal').textContent = taux + ' €';
+    document.getElementById('roiTauxVal').textContent = f(taux) + ' FCFA';
     document.getElementById('roiHeures').textContent = Math.round(heures);
     document.getElementById('roiGain').innerHTML =
-      'Soit ' + f(Math.round(valeur)) + ' € de temps, pour ' + plan + ' € d\'abonnement. ' +
-      'Gain net estimé : <strong style="color:#fff">' + f(Math.round(net)) + ' € par mois</strong>.';
+      'Soit ' + f(Math.round(valeur)) + ' FCFA de temps, pour ' + f(plan) + ' FCFA d\'abonnement. ' +
+      'Gain net estimé : <strong style="color:#fff">' + f(Math.round(net)) + ' FCFA par mois</strong>.';
   }
   [d,t,o].forEach(function(el){ el.addEventListener('input', calc); });
   calc();

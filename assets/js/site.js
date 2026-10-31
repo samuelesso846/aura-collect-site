@@ -60,12 +60,19 @@
         b.classList.toggle('is-active', b.dataset.billing === mode);
       });
       amounts.forEach(function (a) {
-        var v = mode === 'yearly' ? a.dataset.yearly : a.dataset.monthly;
-        a.textContent = v + ' €';
+        var v = Number(mode === 'yearly' ? a.dataset.yearly : a.dataset.monthly);
+        // En annuel, le montant affiché est l'équivalent mensuel arrondi : le total réel
+        // est rappelé dans la note sous le prix.
+        a.textContent = (mode === 'yearly' ? '≈ ' : '') + v.toLocaleString('fr-FR');
       });
       notes.forEach(function (n) {
         if (mode === 'yearly') {
-          n.textContent = 'Facturé annuellement · 2 mois offerts';
+          var total = { '50000': 500000, '95000': 950000, '160000': 1600000 };
+          var monthly = n.closest('.plan') && n.closest('.plan').querySelector('.plan__amount');
+          var key = monthly && monthly.dataset ? monthly.dataset.monthly : '';
+          n.textContent = total[key]
+            ? 'Facturé ' + total[key].toLocaleString('fr-FR') + ' FCFA par an · 2 mois offerts'
+            : 'Facturé annuellement · 2 mois offerts';
         } else {
           n.textContent = '';
         }
