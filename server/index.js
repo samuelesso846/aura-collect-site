@@ -345,7 +345,7 @@ app.post('/api/signup', async (req, res, next) => {
     const ip = req.ip || 'unknown';
     if (!throttle(ip)) return fail('trop', 'Trop de tentatives. Réessayez dans quelques minutes.', 429);
 
-    const name = String(req.body.name || '').trim();
+    const name = String(req.body.name || req.body.nom || '').trim();
     const email = String(req.body.email || '').trim().toLowerCase();
     const password = String(req.body.password || '');
     const planId = planWanted;
