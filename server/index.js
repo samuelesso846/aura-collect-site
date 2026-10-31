@@ -677,6 +677,6 @@ app.listen(PORT, () => {
       console.log(`  cabinet : ${cabinet.name} — ${access.state} (${access.daysLeft} j)`);
     })
     .catch((err) => {
-      console.warn('[aura] facturation indisponible — exécutez server/sql/billing.sql :', err.message);
+      console.warn('[aura] facturation indisponible — exécutez server/sql/setup.sql :', err.message);
     });
 });
