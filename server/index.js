@@ -92,28 +92,53 @@ function sign(value) {
   return crypto.createHmac('sha256', SECRET).update(value).digest('base64url');
 }
 
-function issueSession() {
+/* Le cookie porte l'échéance ET l'identifiant du cabinet : c'est lui qui délimite
+   ce que la session a le droit de voir. */
+function issueSession(cabinetId) {
   const exp = Date.now() + 12 * 3600 * 1000;
-  const payload = String(exp);
-  return payload + '.' + sign(payload);
+  const payload = exp + ':' + cabinetId;
+  return Buffer.from(payload).toString('base64url') + '.' + sign(payload);
 }
 
 function readSession(req) {
   const raw = req.headers.cookie || '';
   const match = raw.match(/(?:^|;\s*)aura_session=([^;]+)/);
-  if (!match) return false;
-  const [payload, sig] = decodeURIComponent(match[1]).split('.');
-  if (!payload || !sig) return false;
+  if (!match) return null;
+  const [encoded, sig] = decodeURIComponent(match[1]).split('.');
+  if (!encoded || !sig) return null;
+  let payload;
+  try { payload = Buffer.from(encoded, 'base64url').toString('utf8'); } catch (_) { return null; }
   const expected = sign(payload);
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
-  return Number(payload) > Date.now();
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  const [exp, cabinetId] = payload.split(':');
+  if (!cabinetId || Number(exp) <= Date.now()) return null;
+  return { cabinetId };
 }
 
 function requireAuth(req, res, next) {
-  if (!readSession(req)) return res.status(401).json({ error: 'Non authentifié' });
+  const session = readSession(req);
+  if (!session) return res.status(401).json({ error: 'Non authentifié' });
+  req.cabinetId = session.cabinetId;
   next();
+}
+
+/* ---------- mots de passe ---------- */
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return 'scrypt$' + salt + '$' + hash;
+}
+
+function verifyPassword(password, stored) {
+  if (!stored) return false;
+  const parts = String(stored).split('$');
+  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
+  const calculated = crypto.scryptSync(password, parts[1], 64);
+  const expected = Buffer.from(parts[2], 'hex');
+  if (expected.length !== calculated.length) return false;
+  return crypto.timingSafeEqual(expected, calculated);
 }
 
 function setSessionCookie(res, value) {
@@ -211,18 +236,39 @@ const upload = multer({
 });
 
 /* ---------- authentification ---------- */
-app.post('/api/login', (req, res) => {
-  const ip = req.ip || 'unknown';
-  if (!throttle(ip)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans quelques minutes.' });
+app.post('/api/login', async (req, res, next) => {
+  try {
+    const ip = req.ip || 'unknown';
+    if (!throttle(ip)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans quelques minutes.' });
 
-  const given = String((req.body && req.body.password) || '');
-  const a = Buffer.from(given);
-  const b = Buffer.from(PASSWORD);
-  const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
-  if (!ok) return res.status(401).json({ error: 'Mot de passe incorrect.' });
+    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+    const given = String((req.body && req.body.password) || '');
+    if (!given) return res.status(401).json({ error: 'Mot de passe requis.' });
 
-  setSessionCookie(res, issueSession());
-  res.json({ ok: true, cabinet: CABINET });
+    let cabinet = null;
+    if (email) {
+      cabinet = await billing.findByEmail(email);
+      if (!cabinet) return res.status(401).json({ error: 'Aucun compte ne correspond à cet email.' });
+    } else {
+      // Accès historique (avant les comptes) : un seul cabinet, mot de passe partagé.
+      cabinet = await billing.ensureCabinet();
+    }
+
+    let ok = false;
+    if (cabinet.password_hash) {
+      ok = verifyPassword(given, cabinet.password_hash);
+    } else {
+      const a = Buffer.from(given);
+      const b = Buffer.from(PASSWORD);
+      ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+    }
+    if (!ok) return res.status(401).json({ error: 'Identifiants incorrects.' });
+
+    setSessionCookie(res, issueSession(cabinet.id));
+    res.json({ ok: true, cabinet: cabinet.name, access: billing.accessOf(cabinet) });
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.post('/api/logout', (req, res) => {
@@ -233,13 +279,24 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/me', async (req, res) => {
   let db = false;
   try { db = await store.healthy(); } catch (err) { console.error('[db] health:', err.message); }
+
+  const session = readSession(req);
+  let cabinet = null;
+  let access = null;
+  if (session) {
+    try {
+      cabinet = await billing.findById(session.cabinetId);
+      if (cabinet) access = billing.accessOf(cabinet);
+    } catch (err) { console.error('[me] cabinet:', err.message); }
+  }
+
   res.json({
-    authenticated: readSession(req),
-    cabinet: CABINET,
+    authenticated: Boolean(session && cabinet),
+    cabinet: cabinet ? cabinet.name : null,
+    access,
     ai: ai.status(),
     mail: mail.mode(),
-    db: db ? 'supabase' : 'down',
-    trial: !process.env.CABINET_PASSWORD
+    db: db ? 'supabase' : 'down'
   });
 });
 
@@ -267,9 +324,55 @@ app.get('/api/billing/plans', (req, res) => {
   });
 });
 
+/* Création de compte public : le cabinet choisit son offre, paie, puis son espace s'ouvre.
+   Aucun accès n'est accordé avant la confirmation du paiement par FedaPay. */
+app.post('/api/signup', async (req, res, next) => {
+  try {
+    if (!fedapay.configured()) return res.status(503).json({ error: 'Le paiement n’est pas encore configuré.' });
+    const ip = req.ip || 'unknown';
+    if (!throttle(ip)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans quelques minutes.' });
+
+    const name = String(req.body.name || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    const planId = String(req.body.plan || 'starter').toLowerCase();
+    const months = Number(req.body.months || 1);
+
+    if (name.length < 2) return res.status(400).json({ error: 'Indiquez le nom de votre cabinet.' });
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Adresse email invalide.' });
+    if (password.length < 8) return res.status(400).json({ error: 'Mot de passe : 8 caractères minimum.' });
+
+    const amount = plans.amountFor(planId, months);
+    if (!amount) return res.status(400).json({ error: 'Offre ou durée invalide.' });
+    if (await billing.findByEmail(email)) {
+      return res.status(409).json({ error: 'Un compte existe déjà avec cette adresse. Connectez-vous depuis l’espace cabinet.' });
+    }
+
+    const cabinet = await billing.createAccount({
+      name, email, plan: planId, passwordHash: hashPassword(password)
+    });
+    const payment = await billing.createPayment({ cabinetId: cabinet.id, plan: planId, months, amount });
+    const base = process.env.PUBLIC_BASE_URL || DEFAULT_BASE;
+
+    const checkout = await fedapay.createCheckout({
+      amount,
+      description: `Aura Collect — ${plans.get(planId).label}, ${months} mois`,
+      customer: { email, firstname: name.slice(0, 40), lastname: 'Aura Collect' },
+      callbackUrl: `${base}/api/billing/callback?p=${payment.id}`,
+      metadata: { payment_id: payment.id, cabinet_id: cabinet.id, plan: planId, months }
+    });
+    await billing.attachCheckout(payment.id, checkout);
+
+    res.json({ url: checkout.url, amount, currency: 'XOF', plan: planId, months });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.get('/api/billing', requireAuth, async (req, res, next) => {
   try {
-    const cabinet = await billing.ensureCabinet();
+    const cabinet = await billing.findById(req.cabinetId);
+    if (!cabinet) return res.status(401).json({ error: 'Session invalide.' });
     res.json({
       cabinet: { id: cabinet.id, name: cabinet.name, email: cabinet.email },
       access: billing.accessOf(cabinet),
@@ -289,7 +392,8 @@ app.post('/api/billing/checkout', requireAuth, async (req, res, next) => {
     const amount = plans.amountFor(planId, months);
     if (!amount) return res.status(400).json({ error: 'Offre ou durée invalide.' });
 
-    const cabinet = await billing.ensureCabinet();
+    const cabinet = await billing.findById(req.cabinetId);
+    if (!cabinet) return res.status(401).json({ error: 'Session invalide.' });
     const email = cabinet.email || process.env.CABINET_EMAIL || '';
     if (!email) return res.status(400).json({ error: 'Renseignez l’email de facturation du cabinet avant de souscrire.' });
 
@@ -343,7 +447,7 @@ app.get('/api/templates', requireAuth, (req, res) => {
 app.get('/api/dossiers', requireAuth, async (req, res, next) => {
   try {
     const base = baseUrl(req);
-    const dossiers = (await store.listDossiers()).map((d) => cabinetDossier(d, base));
+    const dossiers = (await store.listDossiers(req.cabinetId)).map((d) => cabinetDossier(d, base));
     res.json({ dossiers, cabinet: CABINET });
   } catch (err) { next(err); }
 });
@@ -356,6 +460,7 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
     if (!store.templateById(template)) return res.status(400).json({ error: 'Modèle inconnu.' });
 
     const dossier = store.createDossier({ client, email, template, recipient });
+    dossier.cabinetId = req.cabinetId;
     await store.insertDossier(dossier);
     const base = baseUrl(req);
     const entry = await mail.sendMagicLink(dossier, base);
@@ -369,7 +474,7 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
 
 app.post('/api/dossiers/:id/remind', requireAuth, async (req, res, next) => {
   try {
-    const dossier = await store.getDossier(req.params.id);
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
     const missing = dossier.pieces.filter((p) => p.status !== 'ok').length;
     if (!missing) return res.status(400).json({ error: 'Le dossier est déjà complet.' });
@@ -380,7 +485,7 @@ app.post('/api/dossiers/:id/remind', requireAuth, async (req, res, next) => {
 
 app.get('/api/dossiers/:id/export', requireAuth, async (req, res, next) => {
   try {
-    const dossier = await store.getDossier(req.params.id);
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
     await archive.buildZip(res, dossier, store.templateById(dossier.template).name);
   } catch (err) { next(err); }
@@ -388,7 +493,7 @@ app.get('/api/dossiers/:id/export', requireAuth, async (req, res, next) => {
 
 app.post('/api/dossiers/:id/seal', requireAuth, async (req, res, next) => {
   try {
-    const dossier = await store.getDossier(req.params.id);
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (dossier.sealHash) return res.status(409).json({ error: 'Ce dossier est déjà scellé.' });
 
@@ -409,7 +514,7 @@ app.post('/api/dossiers/:id/seal', requireAuth, async (req, res, next) => {
 
 app.get('/api/dossiers/:id/certificate', requireAuth, async (req, res, next) => {
   try {
-    const dossier = await store.getDossier(req.params.id);
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier || !dossier.sealHash || !dossier.sealManifest) {
       return res.status(404).json({ error: 'Dossier non scellé.' });
     }
@@ -422,7 +527,7 @@ app.get('/api/dossiers/:id/certificate', requireAuth, async (req, res, next) => 
 
 app.get('/api/dossiers/:id/integrity', requireAuth, async (req, res, next) => {
   try {
-    const dossier = await store.getDossier(req.params.id);
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier || !dossier.sealHash || !dossier.sealManifest) {
       return res.status(404).json({ error: 'Dossier non scellé.' });
     }

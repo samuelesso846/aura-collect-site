@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Créer mon espace — Aura Collect</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aura.css">
+<style>
+  .ord{padding:38px 0 80px}
+  .ord__grid{display:grid;grid-template-columns:1.15fr .85fr;gap:26px;align-items:start}
+  .ord__card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:var(--shadow)}
+  .ord__card h1{font-size:24px;letter-spacing:-.035em;margin-top:6px}
+  .ord__card p.sub{font-size:13px;color:var(--slate);margin-top:8px;line-height:1.6}
+  .ord__form{margin-top:22px}
+  .ord__choice{display:grid;gap:8px;margin-top:6px}
+  .ord__opt{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;transition:border-color .15s,background .15s}
+  .ord__opt:hover{background:#FBFAFF}
+  .ord__opt.is-on{border-color:#C9BEF7;background:#FAF8FF}
+  .ord__opt input{accent-color:var(--violet);margin:0}
+  .ord__opt b{font-size:13px;display:block}
+  .ord__opt span{font-size:11.5px;color:var(--muted)}
+  .ord__opt .prix{margin-left:auto;font-size:13px;font-weight:600;white-space:nowrap}
+  .ord__sum{background:#151329;color:#fff;border-radius:20px;padding:26px;position:sticky;top:20px}
+  .ord__sum h3{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#A9B0C6;font-weight:600}
+  .ord__total{font-size:34px;font-weight:700;letter-spacing:-.04em;margin-top:12px;line-height:1}
+  .ord__total small{font-size:13px;font-weight:500;color:#A9B0C6;letter-spacing:0}
+  .ord__lines{margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.13);display:grid;gap:9px}
+  .ord__line{display:flex;justify-content:space-between;font-size:12.5px;color:#C9CEE0}
+  .ord__line b{color:#fff;font-weight:500}
+  .ord__note{font-size:11px;color:#8E96AF;line-height:1.6;margin-top:18px}
+  .ord__err{background:#FDECEF;color:#B3253F;border:1px solid #F6CFD7;border-radius:9px;padding:10px 12px;font-size:12px;margin-bottom:12px;display:none}
+  .ord__err.is-on{display:block}
+  .ord__help{font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.6}
+  @media (max-width:860px){.ord__grid{grid-template-columns:1fr}.ord__sum{position:static}}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="container nav__inner">
+    <a class="brand" href="index.html">
+      <span class="brand__mark">A</span>
+      <span>Aura Collect<small>Pièces justificatives</small></span>
+    </a>
+    <div class="nav__cta">
+      <a class="btn btn--ghost btn--sm" href="app">J'ai déjà un compte</a>
+    </div>
+  </div>
+</header>
+
+<main class="ord">
+  <div class="container">
+    <div class="ord__grid">
+
+      <div class="ord__card">
+        <span class="eyebrow">Création de compte</span>
+        <h1>Ouvrez votre espace cabinet</h1>
+        <p class="sub">Votre espace est isolé : vos dossiers, vos modèles et vos clients ne sont visibles que par votre cabinet.</p>
+
+        <form class="ord__form" id="orderForm" novalidate>
+          <div class="ord__err" id="orderErr"></div>
+
+          <div class="field">
+            <label for="nom">Nom du cabinet</label>
+            <input id="nom" name="nom" type="text" autocomplete="organization" required placeholder="Votre cabinet">
+          </div>
+
+          <div class="field">
+            <label for="email">Email professionnel</label>
+            <input id="email" name="email" type="email" autocomplete="username" required placeholder="vous@votre-cabinet.com">
+            <div class="field__hint">Servira d'identifiant de connexion.</div>
+          </div>
+
+          <div class="field">
+            <label for="password">Mot de passe</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="8 caractères minimum">
+          </div>
+
+          <div class="field">
+            <label>Offre</label>
+            <div class="ord__choice" id="planChoice"></div>
+          </div>
+
+          <div class="field" style="margin-bottom:6px">
+            <label>Durée</label>
+            <div class="ord__choice" id="cycleChoice">
+              <label class="ord__opt" data-months="1">
+                <input type="radio" name="cycle" value="1" checked>
+                <span><b>Mensuel</b><span>Sans engagement</span></span>
+              </label>
+              <label class="ord__opt" data-months="12">
+                <input type="radio" name="cycle" value="12">
+                <span><b>Annuel</b><span>Deux mois offerts</span></span>
+              </label>
+            </div>
+          </div>
+
+          <button class="btn btn--primary btn--block" type="submit" id="submitBtn" style="margin-top:18px">
+            Payer et ouvrir mon espace
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+          </button>
+
+          <p class="ord__help">
+            Vous serez redirigé vers la page de paiement sécurisée FedaPay — carte bancaire ou Mobile Money.
+            Aucun prélèvement automatique : chaque période est payée une fois, à votre initiative.
+          </p>
+        </form>
+      </div>
+
+      <aside class="ord__sum">
+        <h3>Récapitulatif</h3>
+        <div class="ord__total" id="total">—</div>
+        <div class="ord__lines">
+          <div class="ord__line"><span>Offre</span><b id="sumPlan">—</b></div>
+          <div class="ord__line"><span>Durée</span><b id="sumCycle">1 mois</b></div>
+          <div class="ord__line"><span>Devise</span><b>FCFA</b></div>
+        </div>
+        <p class="ord__note">
+          Le paiement ouvre immédiatement la période choisie. Aucune donnée bancaire n'est stockée par Aura Collect.
+        </p>
+      </aside>
+
+    </div>
+  </div>
+</main>
+
+<script src="assets/js/commander.js"></script>
+</body>
+</html>

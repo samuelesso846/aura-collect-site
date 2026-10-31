@@ -41,12 +41,16 @@
       <form id="loginForm">
         <div class="auth__err" id="loginErr"></div>
         <div class="field">
+          <label for="email">Email du cabinet</label>
+          <input id="email" type="email" autocomplete="username" required placeholder="vous@votre-cabinet.com">
+        </div>
+        <div class="field">
           <label for="password">Mot de passe</label>
           <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••">
         </div>
         <button class="btn btn--primary btn--block" type="submit" id="loginBtn">Ouvrir mon espace</button>
       </form>
-      <p class="auth__note">Un seul compte cabinet pour ce MVP. Les liens clients, eux, ne demandent aucun mot de passe.</p>
+      <p class="auth__note">Pas encore de compte ? <a href="commander.html" style="color:var(--violet)">Créer mon espace</a>. Les liens clients, eux, ne demandent aucun mot de passe.</p>
     </div>
   </section>
 

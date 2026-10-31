@@ -167,8 +167,11 @@ function mapDossier(row, pieces) {
   };
 }
 
-async function listDossiers() {
-  const { rows } = await pool.query('select * from aura.dossiers order by created_at desc');
+async function listDossiers(cabinetId) {
+  const { rows } = await pool.query(
+    'select * from aura.dossiers where cabinet_id = $1 order by created_at desc',
+    [cabinetId]
+  );
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
   const pieces = await pool.query(
@@ -183,8 +186,11 @@ async function listDossiers() {
   return rows.map((r) => mapDossier(r, byDossier.get(r.id) || []));
 }
 
-async function getDossier(id) {
-  const { rows } = await pool.query('select * from aura.dossiers where id = $1', [id]);
+async function getDossier(id, cabinetId) {
+  const { rows } = await pool.query(
+    'select * from aura.dossiers where id = $1 and cabinet_id = $2',
+    [id, cabinetId]
+  );
   if (!rows.length) return null;
   const pieces = await pool.query('select * from aura.pieces where dossier_id = $1 order by position', [id]);
   return mapDossier(rows[0], pieces.rows);
@@ -203,8 +209,8 @@ async function insertDossier(d) {
   try {
     await client.query('begin');
     await client.query(
-      'insert into aura.dossiers (id, token, client, email, template, recipient) values ($1,$2,$3,$4,$5,$6)',
-      [d.id, d.token, d.client, d.email, d.template, d.recipient || '']
+      'insert into aura.dossiers (id, token, client, email, template, recipient, cabinet_id) values ($1,$2,$3,$4,$5,$6,$7)',
+      [d.id, d.token, d.client, d.email, d.template, d.recipient || '', d.cabinetId]
     );
     for (let i = 0; i < d.pieces.length; i++) {
       const p = d.pieces[i];

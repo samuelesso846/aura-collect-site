@@ -32,6 +32,29 @@ async function ensureCabinet() {
   return rows[0];
 }
 
+async function findById(id) {
+  const rows = await q('select * from aura.cabinets where id = $1', [id]);
+  return rows[0] || null;
+}
+
+async function findByEmail(email) {
+  const rows = await q('select * from aura.cabinets where lower(email) = lower($1) order by created_at asc limit 1', [email]);
+  return rows[0] || null;
+}
+
+/* Compte créé par un cabinet lui-même : aucun accès tant que le paiement n'est pas confirmé. */
+async function createAccount({ name, email, passwordHash, plan }) {
+  const slug = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'cabinet';
+  const rows = await q(
+    `insert into aura.cabinets (name, slug, email, plan, plan_status, password_hash)
+     values ($1, $2, $3, $4, 'pending_payment', $5)
+     returning *`,
+    [name, slug + '-' + Math.random().toString(36).slice(2, 7), email, plan, passwordHash]
+  );
+  return rows[0];
+}
+
 function accessOf(cabinet) {
   const now = Date.now();
   const paidUntil = cabinet.paid_until ? new Date(cabinet.paid_until).getTime() : null;
@@ -166,7 +189,8 @@ async function recentPayments(cabinetId, limit = 20) {
 }
 
 module.exports = {
-  ensureCabinet, accessOf, createPayment, attachCheckout, paymentByTransaction,
+  ensureCabinet, findById, findByEmail, createAccount,
+  accessOf, createPayment, attachCheckout, paymentByTransaction,
   grantPeriod, approveOnce, markPayment, expireIfPending, revokeAccess,
   recordEvent, recentPayments, GRACE_DAYS, TRIAL_DAYS
 };

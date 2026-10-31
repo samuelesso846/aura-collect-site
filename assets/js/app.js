@@ -362,11 +362,11 @@
     err.classList.remove('is-on');
     $('#loginBtn').disabled = true;
     try {
-      await api('/api/login', { method: 'POST', body: { password: $('#password').value } });
+      await api('/api/login', { method: 'POST', body: { email: $('#email').value.trim(), password: $('#password').value } });
       $('#password').value = '';
       await load();
     } catch (ex) {
-      err.textContent = ex.message === 'unauth' ? 'Mot de passe incorrect.' : ex.message;
+      err.textContent = ex.message === 'unauth' ? 'Identifiants incorrects.' : ex.message;
       err.classList.add('is-on');
     } finally {
       $('#loginBtn').disabled = false;
