@@ -648,7 +648,17 @@ app.get('/api/billing/callback', async (req, res) => {
 
 /* ---------- dossiers (cabinet) ---------- */
 app.get('/api/templates', requireAuth, (req, res) => {
-  res.json({ templates: store.TEMPLATES });
+  res.json({
+    templates: store.TEMPLATES.map((t) => ({
+      id: t.id,
+      name: t.name,
+      family: t.family,
+      defaults: t.defaults,
+      catalog: t.catalog,
+      // compatibilite : "pieces" reste la selection par defaut
+      pieces: t.catalog.filter((p) => t.defaults.indexOf(p.key) !== -1)
+    }))
+  });
 });
 
 app.get('/api/dossiers', requireAuth, async (req, res, next) => {
@@ -661,7 +671,7 @@ app.get('/api/dossiers', requireAuth, async (req, res, next) => {
 
 app.post('/api/dossiers', requireAuth, async (req, res, next) => {
   try {
-    const { client, email, phone, template, recipient, clientId } = req.body || {};
+    const { client, email, phone, template, recipient, clientId, pieces } = req.body || {};
     if (!clientId && (!client || String(client).trim().length < 2)) {
       return res.status(400).json({ error: 'Nom du client requis.' });
     }
@@ -689,7 +699,7 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
 
     const dossier = store.createDossier({
       client: clientRow.name, email: clientRow.email || email, template, recipient,
-      clientId: clientRow.id
+      clientId: clientRow.id, pieces
     });
     dossier.cabinetId = req.cabinetId;
     await store.insertDossier(dossier);

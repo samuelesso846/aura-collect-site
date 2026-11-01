@@ -815,3 +815,21 @@ html.js .reveal.is-in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){
   .scene:hover img{transform:none}
 }
+
+/* ---- Sélection des pièces à la création d'un dossier ---- */
+.picks__head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.picks__count{color:var(--muted);font-weight:500}
+.picks__all{white-space:nowrap}
+.picks__link{background:none;border:0;padding:0;color:var(--primary);font:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+.picks__link+.picks__link{margin-left:12px}
+.picks{display:grid;gap:2px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px;background:#fff}
+.pick{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;font-size:12.5px;cursor:pointer;margin:0}
+.pick:hover{background:#F7F6FC}
+.pick input[type=checkbox]{margin:0;flex:0 0 auto;accent-color:var(--primary)}
+.pick__t{font-weight:550;color:var(--ink)}
+.pick__r{margin-left:auto;color:var(--muted);font-size:11px;text-align:right}
+.pick--custom{border:1px dashed var(--line);margin-top:6px;cursor:default}
+.pick__in{flex:1 1 0;min-width:0;border:1px solid var(--line);border-radius:7px;padding:5px 8px;font:inherit;font-size:12px}
+.pick__in--rule{flex:0 1 170px}
+.pick__del{background:none;border:0;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;padding:0 3px}
+.pick__del:hover{color:var(--red)}

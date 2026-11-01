@@ -396,13 +396,66 @@
     updateHint();
   }
 
-  function updateHint() {
+  function currentTemplate() {
     var id = $('#clientTpl').value;
-    var t = state.templates.filter(function (x) { return x.id === id; })[0];
+    return state.templates.filter(function (x) { return x.id === id; })[0];
+  }
+
+  function updateHint() {
+    var t = currentTemplate();
     if (!t) return;
-    $('#tplHint').textContent = t.pieces.length + ' pièces : ' +
-      t.pieces.slice(0, 3).map(function (p) { return p.label; }).join(', ') +
-      (t.pieces.length > 3 ? '…' : '');
+    $('#tplHint').textContent = t.catalog.length + ' pièces possibles pour ce modèle.';
+    renderPicks();
+  }
+
+  /* Le catalogue du modèle est proposé en entier, pré-coché selon les usages.
+     Le cabinet décoche ce qu'il ne demande pas. */
+  function renderPicks() {
+    var t = currentTemplate();
+    if (!t) return;
+    $('#piecePicks').innerHTML = t.catalog.map(function (p) {
+      var on = t.defaults.indexOf(p.key) !== -1;
+      return '<label class="pick">' +
+        '<input type="checkbox" data-label="' + esc(p.label) + '" data-rule="' + esc(p.rule) + '"' + (on ? ' checked' : '') + '>' +
+        '<span class="pick__t">' + esc(p.label) + '</span>' +
+        '<span class="pick__r">' + esc(p.rule) + '</span>' +
+        '</label>';
+    }).join('');
+    updateCount();
+  }
+
+  function updateCount() {
+    var n = $('#piecePicks').querySelectorAll('input:checked').length +
+      $('#customPieces').querySelectorAll('.pick--custom').length;
+    $('#pickCount').textContent = n === 0 ? '(aucune)' : '(' + n + ')';
+  }
+
+  function addCustomPiece() {
+    var row = document.createElement('div');
+    row.className = 'pick pick--custom';
+    row.innerHTML =
+      '<input type="checkbox" checked>' +
+      '<input class="pick__in" type="text" placeholder="Nom de la pièce" maxlength="120">' +
+      '<input class="pick__in pick__in--rule" type="text" placeholder="Règle (moins de 3 mois…)" maxlength="80">' +
+      '<button type="button" class="pick__del" title="Retirer">&times;</button>';
+    $('#customPieces').appendChild(row);
+    row.querySelector('.pick__in').focus();
+    updateCount();
+  }
+
+  function collectPieces() {
+    var out = [];
+    $('#piecePicks').querySelectorAll('input:checked').forEach(function (el) {
+      out.push({ label: el.getAttribute('data-label'), rule: el.getAttribute('data-rule') });
+    });
+    $('#customPieces').querySelectorAll('.pick--custom').forEach(function (row) {
+      if (!row.querySelector('input[type=checkbox]').checked) return;
+      var label = row.querySelector('.pick__in').value.trim();
+      if (!label) return;
+      var rule = row.querySelector('.pick__in--rule').value.trim();
+      out.push({ label: label, rule: rule || 'selon vos règles' });
+    });
+    return out;
   }
 
   function resetModal() {
@@ -414,6 +467,8 @@
     if (old) old.remove();
     $('#createBtn').disabled = false;
     $('#createBtn').textContent = 'Créer et envoyer le lien';
+    var custom = $('#customPieces');
+    if (custom) custom.innerHTML = '';
   }
 
   function openNew() {
@@ -557,6 +612,29 @@
   $('#newBtn').addEventListener('click', openNew);
   $('#clientTpl').addEventListener('change', updateHint);
 
+  /* Sélection des pièces : tout cocher, tout décocher, ajouter, retirer. */
+  document.addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (t.id === 'addPiece') { ev.preventDefault(); addCustomPiece(); return; }
+    if (t.id === 'pickAll' || t.id === 'pickNone') {
+      ev.preventDefault();
+      var on = t.id === 'pickAll';
+      $('#piecePicks').querySelectorAll('input').forEach(function (el) { el.checked = on; });
+      updateCount();
+      return;
+    }
+    if (t.classList && t.classList.contains('pick__del')) {
+      ev.preventDefault();
+      var row = t.closest('.pick--custom');
+      if (row) row.remove();
+      updateCount();
+    }
+  });
+
+  document.addEventListener('change', function (ev) {
+    if (ev.target.closest && ev.target.closest('#piecePicks')) updateCount();
+  });
+
   $$('[data-close-new]').forEach(function (b) {
     b.addEventListener('click', function () { $('#modalNew').classList.remove('is-open'); resetModal(); });
   });
@@ -574,6 +652,10 @@
 
   $('#newForm').addEventListener('submit', async function (e) {
     e.preventDefault();
+    if (!collectPieces().length) {
+      toast('Cochez au moins une pièce à demander.', true);
+      return;
+    }
     var btn = $('#createBtn');
     btn.disabled = true;
     btn.textContent = 'Création…';
@@ -584,7 +666,8 @@
           client: $('#clientName').value.trim(),
           email: $('#clientEmail').value.trim(),
           template: $('#clientTpl').value,
-          recipient: $('#clientRecipient').value.trim()
+          recipient: $('#clientRecipient').value.trim(),
+          pieces: collectPieces()
         }
       });
 

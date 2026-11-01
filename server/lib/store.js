@@ -18,66 +18,112 @@ pool.on('error', (err) => console.error('[db] erreur de pool :', err.message));
 const TEMPLATES = [
   {
     id: 'bilan', name: 'Bilan annuel', family: 'Expert-comptable',
-    pieces: [
-      { key: 'avis-imposition', label: "Avis d'imposition 2025", rule: 'émis il y a moins de 12 mois' },
-      { key: 'piece-identite', label: "Pièce d'identité", rule: 'en cours de validité' },
+    defaults: ['avis-imposition', 'piece-identite', 'releves-bancaires', 'liasse-fiscale'],
+    catalog: [
+      { key: 'avis-imposition', label: "Avis d'imposition", rule: 'moins de 12 mois' },
+      { key: 'piece-identite', label: "Pièce d'identité du gérant", rule: 'en cours de validité' },
       { key: 'releves-bancaires', label: '3 derniers relevés bancaires', rule: 'moins de 3 mois' },
-      { key: 'justif-domicile', label: 'Justificatif de domicile', rule: 'moins de 3 mois' },
-      { key: 'liasse-fiscale', label: 'Liasse fiscale N-1', rule: 'signée' }
+      { key: 'liasse-fiscale', label: 'Liasse fiscale N-1', rule: 'signée' },
+      { key: 'factures-achat', label: "Factures d'achat de l'exercice", rule: 'toutes les pages' },
+      { key: 'factures-vente', label: "Factures de vente de l'exercice", rule: 'toutes les pages' },
+      { key: 'charges-sociales', label: 'Justificatifs de charges sociales', rule: 'exercice concerné' },
+      { key: 'contrats-emprunt', label: "Contrats d'emprunt en cours", rule: "tableau d'amortissement joint" }
     ]
   },
   {
     id: 'tva', name: 'Déclarations de TVA', family: 'Expert-comptable',
-    pieces: [
-      { key: 'declarations-tva', label: 'Déclarations de TVA 2025', rule: 'les 4 trimestres' },
+    defaults: ['declarations-tva', 'releves-bancaires', 'justif-activite', 'piece-identite'],
+    catalog: [
+      { key: 'declarations-tva', label: 'Déclarations de TVA', rule: 'les 4 trimestres' },
       { key: 'releves-bancaires', label: 'Relevés bancaires professionnels', rule: 'moins de 3 mois' },
       { key: 'justif-activite', label: "Justificatif d'activité", rule: 'moins de 12 mois' },
-      { key: 'piece-identite', label: "Pièce d'identité du gérant", rule: 'en cours de validité' }
+      { key: 'piece-identite', label: "Pièce d'identité du gérant", rule: 'en cours de validité' },
+      { key: 'factures-achat', label: "Factures d'achat du trimestre", rule: 'toutes les pages' },
+      { key: 'factures-vente', label: 'Factures de vente du trimestre', rule: 'toutes les pages' }
     ]
   },
   {
     id: 'creation', name: 'Création de société', family: 'Expert-comptable',
-    pieces: [
+    defaults: ['piece-identite', 'justif-domicile', 'depot-capital', 'statuts', 'rib'],
+    catalog: [
       { key: 'piece-identite', label: "Pièce d'identité", rule: 'en cours de validité' },
       { key: 'justif-domicile', label: 'Justificatif de domicile', rule: 'moins de 3 mois' },
       { key: 'depot-capital', label: 'Attestation de dépôt du capital', rule: 'originale' },
       { key: 'statuts', label: 'Statuts signés', rule: 'toutes les pages' },
-      { key: 'rib', label: 'RIB professionnel', rule: 'au nom de la société' }
+      { key: 'rib', label: 'RIB professionnel', rule: 'au nom de la société' },
+      { key: 'piece-identite-associes', label: "Pièce d'identité de chaque associé", rule: 'en cours de validité' },
+      { key: 'casier-judiciaire', label: 'Casier judiciaire', rule: 'moins de 3 mois' },
+      { key: 'plan-localisation', label: 'Plan de localisation du siège', rule: 'lisible' },
+      { key: 'bail-commercial', label: 'Bail ou contrat de location du siège', rule: 'signé' }
     ]
   },
   {
     id: 'credit', name: 'Crédit immobilier', family: 'Courtier',
-    pieces: [
+    defaults: ['piece-identite', 'justif-domicile', 'bulletins-salaire', 'avis-imposition', 'releves-bancaires', 'contrat-travail'],
+    catalog: [
       { key: 'piece-identite', label: "Pièce d'identité", rule: 'en cours de validité' },
       { key: 'justif-domicile', label: 'Justificatif de domicile', rule: 'moins de 3 mois' },
       { key: 'bulletins-salaire', label: '3 derniers bulletins de salaire', rule: 'moins de 3 mois' },
       { key: 'avis-imposition', label: "2 derniers avis d'imposition", rule: 'N-1 et N-2' },
       { key: 'releves-bancaires', label: '3 derniers relevés bancaires', rule: 'toutes les pages' },
-      { key: 'contrat-travail', label: 'Contrat de travail', rule: 'signé' }
+      { key: 'contrat-travail', label: 'Contrat de travail', rule: 'signé' },
+      { key: 'apport-personnel', label: "Justificatif d'apport personnel", rule: 'moins de 3 mois' },
+      { key: 'credit-en-cours', label: 'Tableau des crédits en cours', rule: 'moins de 3 mois' },
+      { key: 'compromis-vente', label: 'Compromis ou promesse de vente', rule: 'signé' },
+      { key: 'garant-identite', label: "Pièce d'identité du garant", rule: 'en cours de validité' },
+      { key: 'garant-revenus', label: 'Revenus du garant', rule: 'moins de 3 mois' }
     ]
   },
   {
     id: 'locataire', name: 'Dossier locataire', family: 'Immobilier',
-    pieces: [
+    defaults: ['piece-identite', 'justif-domicile', 'bulletins-salaire', 'contrat-travail', 'avis-imposition'],
+    catalog: [
       { key: 'piece-identite', label: "Pièce d'identité", rule: 'en cours de validité' },
       { key: 'justif-domicile', label: 'Justificatif de domicile', rule: 'moins de 3 mois' },
       { key: 'bulletins-salaire', label: '3 derniers bulletins de salaire', rule: 'moins de 3 mois' },
       { key: 'contrat-travail', label: 'Contrat de travail', rule: 'signé' },
-      { key: 'avis-imposition', label: "Avis d'imposition", rule: 'année N-1' }
+      { key: 'avis-imposition', label: "Avis d'imposition", rule: 'année N-1' },
+      { key: 'garant-identite', label: "Pièce d'identité du garant", rule: 'en cours de validité' },
+      { key: 'garant-revenus', label: 'Revenus du garant', rule: 'moins de 3 mois' },
+      { key: 'releves-bancaires', label: '3 derniers relevés bancaires', rule: 'toutes les pages' },
+      { key: 'attestation-employeur', label: "Attestation de l'employeur", rule: 'moins de 3 mois' },
+      { key: 'quittance-loyer', label: 'Dernière quittance de loyer', rule: 'moins de 3 mois' },
+      { key: 'photo-recente', label: 'Photo récente', rule: 'moins de 6 mois' }
     ]
   },
   {
     id: 'onboarding', name: 'Onboarding salarié', family: 'RH & freelance',
-    pieces: [
+    defaults: ['piece-identite', 'rib', 'carte-vitale', 'contrat'],
+    catalog: [
       { key: 'piece-identite', label: "Pièce d'identité", rule: 'en cours de validité' },
       { key: 'rib', label: 'RIB', rule: 'au nom du salarié' },
       { key: 'carte-vitale', label: 'Carte vitale', rule: 'lisible' },
-      { key: 'contrat', label: 'Contrat de travail signé', rule: 'toutes les pages' }
+      { key: 'contrat', label: 'Contrat de travail signé', rule: 'toutes les pages' },
+      { key: 'diplomes', label: 'Diplômes et attestations', rule: 'toutes les pages' },
+      { key: 'casier-judiciaire', label: 'Casier judiciaire', rule: 'moins de 3 mois' },
+      { key: 'justif-domicile', label: 'Justificatif de domicile', rule: 'moins de 3 mois' },
+      { key: 'photo-recente', label: 'Photo récente', rule: 'moins de 6 mois' }
+    ]
+  },
+  {
+    id: 'kyc', name: 'Ouverture de compte (KYC)', family: 'Microfinance & banque',
+    defaults: ['piece-identite', 'justif-domicile', 'justif-activite', 'justif-revenus', 'photo-recente'],
+    catalog: [
+      { key: 'piece-identite', label: "Pièce d'identité", rule: 'en cours de validité' },
+      { key: 'justif-domicile', label: 'Justificatif de domicile', rule: 'moins de 3 mois' },
+      { key: 'justif-activite', label: "Justificatif d'activité", rule: 'moins de 12 mois' },
+      { key: 'justif-revenus', label: 'Justificatif de revenus', rule: 'moins de 3 mois' },
+      { key: 'photo-recente', label: 'Photo récente', rule: 'moins de 6 mois' },
+      { key: 'rccm', label: 'Registre du commerce (RCCM)', rule: 'en cours de validité' },
+      { key: 'statuts', label: 'Statuts de la structure', rule: 'toutes les pages' },
+      { key: 'bilans', label: 'Derniers états financiers', rule: 'exercice N-1' },
+      { key: 'rib', label: 'RIB', rule: 'au nom du titulaire' }
     ]
   },
   {
     id: 'surmesure', name: 'Dossier sur-mesure', family: 'Personnalisé',
-    pieces: [
+    defaults: ['piece-1', 'piece-2', 'piece-3'],
+    catalog: [
       { key: 'piece-1', label: 'Première pièce', rule: 'selon vos règles' },
       { key: 'piece-2', label: 'Deuxième pièce', rule: 'selon vos règles' },
       { key: 'piece-3', label: 'Troisième pièce', rule: 'selon vos règles' }
@@ -127,7 +173,29 @@ function progressOf(dossier) {
   return { ok: good, total: dossier.pieces.length, pct: Math.round((good / total) * 100) };
 }
 
-function createDossier({ client, email, template, recipient, clientId }) {
+/* La liste des pièces d'un dossier n'est plus recopiée du modèle : le cabinet
+   coche ce qu'il demande et peut ajouter ses propres pièces. On nettoie ce qui
+   arrive du navigateur avant de l'enregistrer. */
+function normalisePieces(list, template) {
+  const tpl = templateById(template);
+  const fallback = tpl.catalog.filter((p) => tpl.defaults.indexOf(p.key) !== -1);
+  const source = Array.isArray(list) && list.length ? list : fallback;
+
+  const seen = new Set();
+  const out = [];
+  for (const raw of source.slice(0, 25)) {
+    const label = String((raw && raw.label) || '').trim().slice(0, 120);
+    if (!label) continue;
+    let key = String((raw && raw.key) || slug(label)).slice(0, 60) || 'piece';
+    let n = 2;
+    while (seen.has(key)) key = key.replace(/-\d+$/, '') + '-' + n++;
+    seen.add(key);
+    out.push({ key, label, rule: String((raw && raw.rule) || 'selon vos règles').trim().slice(0, 80) });
+  }
+  return out.length ? out : fallback;
+}
+
+function createDossier({ client, email, template, recipient, clientId, pieces }) {
   const tpl = templateById(template);
   const now = new Date().toISOString();
   return {
@@ -140,7 +208,7 @@ function createDossier({ client, email, template, recipient, clientId }) {
     recipient: String(recipient || '').trim(),
     createdAt: now,
     lastActivity: now,
-    pieces: tpl.pieces.map((p) => ({
+    pieces: normalisePieces(pieces, tpl.id).map((p) => ({
       key: p.key, label: p.label, rule: p.rule,
       status: 'wait', filename: '', stored: '', mime: '', size: 0,
       reason: '', typeDetecte: '', dateDocument: '', confidence: null, provider: '', at: ''
@@ -511,7 +579,7 @@ async function healthy() {
 }
 
 module.exports = {
-  pool, TEMPLATES, templateById,
+  pool, TEMPLATES, templateById, normalisePieces,
   token, slug, statusOf, progressOf, createDossier,
   mapClient, listClients, getClient, ensureClient,
   listDossiers, countDossiers, getDossier, getDossierById, getByToken, insertDossier,

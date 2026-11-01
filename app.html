@@ -116,6 +116,21 @@
           <select id="clientTpl"></select>
           <div class="field__hint" id="tplHint"></div>
         </div>
+
+        <div class="field">
+          <div class="picks__head">
+            <label>Pièces demandées <span class="picks__count" id="pickCount"></span></label>
+            <span class="picks__all">
+              <button type="button" class="picks__link" id="pickAll">Tout cocher</button>
+              <button type="button" class="picks__link" id="pickNone">Tout décocher</button>
+            </span>
+          </div>
+          <div class="picks" id="piecePicks"></div>
+          <div id="customPieces"></div>
+          <button type="button" class="btn btn--ghost btn--sm" id="addPiece" style="margin-top:8px">+ Ajouter une pièce</button>
+          <div class="field__hint">Décochez ce que vous ne demandez pas. Le lien ne réclamera que les pièces cochées.</div>
+        </div>
+
         <button class="btn btn--primary btn--block" type="submit" id="createBtn" style="margin-top:6px">Créer et envoyer le lien</button>
       </form>
     </div>
