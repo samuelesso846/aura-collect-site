@@ -285,6 +285,7 @@ app.post('/api/login', async (req, res, next) => {
     }
     if (!ok) return res.status(401).json({ error: 'Identifiants incorrects.' });
 
+    cabinet = await billing.startTrialIfMissing(cabinet);
     setSessionCookie(res, issueSession(cabinet.id));
     res.json({ ok: true, cabinet: cabinet.name, access: billing.accessOf(cabinet) });
   } catch (err) {
@@ -307,6 +308,9 @@ app.get('/api/me', async (req, res) => {
   if (session) {
     try {
       cabinet = await billing.findById(session.cabinetId);
+      /* Une session déjà ouverte doit se réparer seule : sans cela, un cabinet
+         sans échéance resterait bloqué sans jamais repasser par la connexion. */
+      cabinet = await billing.startTrialIfMissing(cabinet);
       if (cabinet) access = billing.accessOf(cabinet);
     } catch (err) { console.error('[me] cabinet:', err.message); }
   }

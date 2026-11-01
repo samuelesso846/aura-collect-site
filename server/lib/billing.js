@@ -55,6 +55,24 @@ async function createAccount({ name, email, passwordHash, plan }) {
   return rows[0];
 }
 
+/* Réparation : un cabinet créé avant la mise en place des essais n'a aucune
+   échéance. `accessOf` le classe alors « suspendu » et l'interface lui répond
+   « Abonnement inactif » — sans lui offrir le moindre moyen de régulariser.
+   On lui ouvre un essai à sa première connexion, plutôt que de le laisser
+   dans une impasse. */
+async function startTrialIfMissing(cabinet) {
+  if (!cabinet) return cabinet;
+  if (cabinet.trial_ends_at || cabinet.paid_until) return cabinet;
+  const rows = await q(
+    `update aura.cabinets
+        set trial_ends_at = now() + ($1 || ' days')::interval, plan_status = 'trialing'
+      where id = $2 and trial_ends_at is null and paid_until is null
+      returning *`,
+    [String(TRIAL_DAYS), cabinet.id]
+  );
+  return rows[0] || cabinet;
+}
+
 function accessOf(cabinet) {
   const now = Date.now();
   const paidUntil = cabinet.paid_until ? new Date(cabinet.paid_until).getTime() : null;
@@ -190,7 +208,7 @@ async function recentPayments(cabinetId, limit = 20) {
 
 module.exports = {
   ensureCabinet, findById, findByEmail, createAccount,
-  accessOf, createPayment, attachCheckout, paymentByTransaction,
+  accessOf, startTrialIfMissing, createPayment, attachCheckout, paymentByTransaction,
   grantPeriod, approveOnce, markPayment, expireIfPending, revokeAccess,
   recordEvent, recentPayments, GRACE_DAYS, TRIAL_DAYS
 };
