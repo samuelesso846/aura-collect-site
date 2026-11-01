@@ -66,6 +66,15 @@
 
   function showLogin() {
     var b = $('#bootView'); if (b) b.hidden = true;
+    var hint = $('#switchHint');
+    if (hint) {
+      if (state.me && state.me.authenticated && state.me.cabinet) {
+        hint.textContent = 'Vous êtes connecté en tant que « ' + state.me.cabinet + ' ». Saisissez un autre compte pour changer d\'espace.';
+        hint.hidden = false;
+      } else {
+        hint.hidden = true;
+      }
+    }
     $('#loginView').hidden = false;
     $('#dashView').hidden = true;
     $('#logoutBtn').hidden = true;
@@ -475,7 +484,11 @@
         pill.title = 'La vérification automatique est momentanément indisponible. Les pièces restent déposables et validables manuellement.';
       }
 
-      if (me.authenticated) await load();
+      /* Le bouton « Se connecter » mène ici avec ?login=1 : il doit montrer le
+         formulaire même si une session est déjà ouverte, sinon on entre dans
+         l'espace du compte précédent sans avoir rien demandé. */
+      var forceLogin = /[?&]login=1\b/.test(window.location.search);
+      if (me.authenticated && !forceLogin) await load();
       else showLogin();
     } catch (e) {
       showLogin();
