@@ -91,29 +91,41 @@
   /* ---------- rendu ---------- */
   function renderStats() {
     var ds = state.dossiers;
-    var attente = ds.filter(function (d) { return d.status === 'attente'; }).length;
-    var incomplet = ds.filter(function (d) { return d.status === 'incomplet'; }).length;
     var aValider = ds.filter(function (d) { return d.status === 'a_valider'; }).length;
     var scelles = ds.filter(function (d) { return d.status === 'scelle'; }).length;
-
-    $('#stats').innerHTML = [
-      { l: 'Dossiers', n: ds.length, c: '' },
-      { l: 'Incomplets', n: incomplet + attente, c: (incomplet + attente) ? 'is-warn' : '' },
-      { l: 'À valider', n: aValider, c: aValider ? 'is-warn' : '' },
-      { l: 'Scellés', n: scelles, c: scelles ? 'is-ok' : '' }
-    ].map(function (s) {
-      return '<div class="stat-card"><div class="stat-card__l">' + s.l + '</div>' +
-        '<div class="stat-card__n ' + s.c + '">' + s.n + '</div></div>';
-    }).join('');
+    var attente = ds.length - aValider - scelles;
 
     $('#dashSub').textContent = ds.length
-      ? ds.length + ' dossier' + (ds.length > 1 ? 's' : '') + ' · ' + aValider + ' à valider · ' + scelles + ' scellé' + (scelles > 1 ? 's' : '')
+      ? ds.length + ' dossier' + (ds.length > 1 ? 's' : '') + ' · ' + attente +
+        ' en cours · ' + aValider + ' à valider · ' + scelles + ' scellé' + (scelles > 1 ? 's' : '')
       : 'Aucun dossier pour l\'instant.';
   }
 
   function statusChip(d) {
     var map = { attente: 'En attente', incomplet: 'Incomplet', a_valider: 'À valider', scelle: 'Scellé' };
     return '<span class="chip chip--' + d.status + '"><i></i>' + map[d.status] + '</span>';
+  }
+
+  var COLONNES = [
+    { label: 'En attente', test: function (d) { return d.status === 'attente'; } },
+    { label: 'Incomplet', test: function (d) { return d.status === 'incomplet'; } },
+    { label: 'Complet', test: function (d) { return d.status === 'a_valider' || d.status === 'scelle'; } }
+  ];
+
+  function kanbanCard(d) {
+    var etat = d.status === 'scelle' ? 'scellé'
+      : d.status === 'a_valider' ? 'à valider' : '';
+    var bar = (d.status === 'scelle' || d.status === 'a_valider') ? 'is-ok'
+      : d.status === 'incomplet' ? 'is-warn' : '';
+    return '<button class="kcard" data-id="' + d.id + '">' +
+      '<div class="kcard__top"><span class="kcard__name">' + esc(d.client) + '</span>' +
+        (etat ? '<span class="kcard__flag kcard__flag--' + d.status + '">' + etat + '</span>' : '') +
+      '</div>' +
+      '<div class="kcard__tpl">' + esc(d.templateName) + '</div>' +
+      '<div class="kcard__bar ' + bar + '"><i style="width:' + d.progress.pct + '%"></i></div>' +
+      '<div class="kcard__foot"><span>' + d.progress.ok + '/' + d.progress.total + ' pièces</span>' +
+        '<span>' + rel(d.lastActivity) + '</span></div>' +
+    '</button>';
   }
 
   function renderList() {
@@ -124,53 +136,23 @@
       return;
     }
 
-    // Le cabinet travaille par client, pas dossier par dossier.
-    var groups = {};
-    var order = [];
-    state.dossiers.forEach(function (d) {
-      var key = d.clientId || ('nom:' + d.client);
-      if (!groups[key]) {
-        groups[key] = { name: d.clientName || d.client, phone: d.clientPhone || '', items: [] };
-        order.push(key);
-      }
-      groups[key].items.push(d);
+    var html = '<div class="kanban">';
+    COLONNES.forEach(function (col) {
+      var items = state.dossiers.filter(col.test).sort(function (a, b) {
+        return new Date(b.lastActivity) - new Date(a.lastActivity);
+      });
+      html += '<div class="kanban__col">' +
+        '<div class="kanban__head"><span>' + col.label + '</span><b>' + items.length + '</b></div>' +
+        '<div class="kanban__body">' +
+          (items.length ? items.map(kanbanCard).join('')
+            : '<div class="kanban__void">Aucun dossier</div>') +
+        '</div></div>';
     });
-    order.sort(function (a, b) { return groups[a].name.localeCompare(groups[b].name, 'fr'); });
+    html += '</div>';
 
-    var html = '';
-    order.forEach(function (key) {
-      var g = groups[key];
-      var enCours = g.items.filter(function (d) { return d.status !== 'scelle'; }).length;
-      html += '<div class="dgroup"><div class="dgroup__head">' +
-        '<span class="dgroup__name">' + esc(g.name) + '</span>' +
-        (g.phone ? '<span class="dgroup__phone">' + esc(g.phone) + '</span>' : '') +
-        '<span class="dgroup__count">' + g.items.length + ' dossier' + (g.items.length > 1 ? 's' : '') +
-        (enCours ? ' · ' + enCours + ' en cours' : ' · tout est scellé') + '</span>' +
-      '</div>';
-      html += g.items.map(function (d) {
-        var barClass = d.status === 'scelle' ? 'is-ok'
-          : d.status === 'incomplet' ? 'is-warn'
-            : d.status === 'a_valider' ? 'is-warn' : '';
-        return '<button class="drow" data-id="' + d.id + '">' +
-          '<div class="drow__client"><span class="drow__av">' + initials(d.client) + '</span>' +
-            '<div style="min-width:0"><div class="drow__name">' + esc(d.templateName) + '</div>' +
-            '<div class="drow__mail">' + esc(d.email) + '</div></div></div>' +
-          '<div class="drow__tpl">' + esc(d.recipient || '—') + '</div>' +
-          '<div class="drow__prog"><div class="drow__bar ' + barClass + '"><i style="width:' + d.progress.pct + '%"></i></div>' +
-            '<div class="drow__count">' + d.progress.ok + '/' + d.progress.total + ' pièces reçues</div></div>' +
-          '<div class="drow__date">' + rel(d.lastActivity) + '</div>' +
-          '<div class="drow__status">' + statusChip(d) + '</div>' +
-        '</button>';
-      }).join('');
-      html += '</div>';
-    });
-
-    $('#listWrap').innerHTML =
-      '<div class="dlist"><div class="dlist__head"><span>Dossier</span><span>Destinataire</span>' +
-      '<span>Progression</span><span>Activité</span><span>Statut</span></div>' + html + '</div>';
-
-    $$('.drow').forEach(function (row) {
-      row.addEventListener('click', function () { openDrawer(row.dataset.id); });
+    $('#listWrap').innerHTML = html;
+    $$('.kcard').forEach(function (c) {
+      c.addEventListener('click', function () { openDrawer(c.dataset.id); });
     });
   }
 
