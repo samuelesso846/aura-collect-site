@@ -222,9 +222,18 @@
         : p.status === 'review' ? 'background:var(--amber-soft);color:#A5620B'
           : 'background:#F1F3F8;color:#98A0B2';
 
-    var confirmBtn = (!d.sealed && (p.status === 'ok' || p.status === 'review'))
-      ? '<button class="btn btn--ghost btn--xs" data-confirm="' + d.id + '|' + p.key + '">Confirmer</button>'
-      : '';
+    var confirmBtn = '';
+    if (!d.sealed) {
+      if (p.status === 'ok' || p.status === 'review') {
+        confirmBtn =
+          '<button class="btn btn--ghost btn--xs" data-confirm="' + d.id + '|' + p.key + '">Confirmer</button>' +
+          '<button class="btn btn--ghost btn--xs" data-reject="' + d.id + '|' + p.key + '">Demander à refaire</button>';
+      } else if (p.forcable) {
+        /* L'IA s'est trompée de nature de document : le cabinet tranche. */
+        confirmBtn =
+          '<button class="btn btn--ghost btn--xs" data-confirm="' + d.id + '|' + p.key + '">Accepter quand même</button>';
+      }
+    }
 
     return '<div class="piece-row">' +
       '<div class="piece-row__st" style="' + style + '">' + ico + '</div>' +
@@ -466,7 +475,31 @@
       await load();
       render();
       openDrawer(parts[0]);
-      toast('Pièce confirmée.');
+      toast('Pièce validée.');
+    } catch (e) {
+      toast(e.message, true);
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  });
+
+  /* Le cabinet renvoie une pièce au client : elle redevient à déposer. */
+  document.addEventListener('click', async function (ev) {
+    var btn = ev.target.closest ? ev.target.closest('[data-reject]') : null;
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!confirm('Demander une nouvelle version de cette pièce au client ?')) return;
+    var parts = btn.getAttribute('data-reject').split('|');
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      await api('/api/dossiers/' + parts[0] + '/pieces/' + parts[1] + '/reject', { method: 'POST' });
+      await load();
+      render();
+      openDrawer(parts[0]);
+      toast('Le client est invité à redéposer cette pièce.');
     } catch (e) {
       toast(e.message, true);
       btn.disabled = false;

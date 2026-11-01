@@ -157,24 +157,30 @@ function toVerdict(json) {
   const dateOk = json.date_valide !== false;
   const date = typeof json.date_document === 'string' ? json.date_document : '';
 
+  /* La phrase canonique reste en tête : c'est elle qui permet de savoir, plus
+     tard, si le cabinet peut passer outre le verdict (cf. peutEtreForce). */
+  const joindre = (canonique) => (reason && reason !== canonique ? canonique + ' ' + reason : canonique);
+
   if (!typeOk) {
     return {
       status: 'ko',
-      reason: reason || "Ce document ne correspond pas à la pièce demandée. Merci d'envoyer le bon justificatif.",
+      reason: joindre("Ce document ne correspond pas à la pièce demandée. Merci d'envoyer le bon justificatif."),
       confidence: conf
     };
   }
   if (!lisible) {
     return {
       status: 'ko',
-      reason: reason || 'Le document est difficile à lire. Reprenez la photo à la lumière du jour, feuille bien à plat.',
+      reason: joindre('Le document est difficile à lire. Reprenez la photo à la lumière du jour, feuille bien à plat.'),
       confidence: conf
     };
   }
   if (!dateOk) {
     return {
       status: 'ko',
-      reason: reason || (date ? `Ce document date du ${date} : il ne respecte pas la période demandée.` : 'La date du document est absente ou illisible.'),
+      reason: joindre(date
+        ? `Ce document date du ${date} : il ne respecte pas la période demandée.`
+        : 'La date du document est absente ou illisible.'),
       confidence: conf
     };
   }

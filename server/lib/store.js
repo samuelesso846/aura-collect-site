@@ -461,6 +461,22 @@ async function touch(dossierId) {
   await pool.query('update aura.dossiers set last_activity = now() where id = $1', [dossierId]);
 }
 
+/* Un rejet n'est pas toujours définitif. Quand l'IA se trompe de nature de
+   document, le cabinet peut passer outre. Quand elle dit qu'elle ne lit pas,
+   ou que la pièce est périmée, personne ne peut forcer : le document serait
+   réellement illisible ou réellement expiré. */
+function motifDeRejet(reason) {
+  const r = String(reason || '').toLowerCase();
+  if (r.indexOf('difficile à lire') !== -1 || r.indexOf('illisible') !== -1) return 'lisible';
+  if (r.indexOf('ne correspond pas') !== -1 || r.indexOf('mauvais document') !== -1) return 'type';
+  if (r.indexOf('ne respecte pas la période') !== -1 || r.indexOf('périmé') !== -1) return 'date';
+  return 'autre';
+}
+
+function peutEtreForce(piece) {
+  return !!piece && piece.status === 'ko' && motifDeRejet(piece.reason) === 'type';
+}
+
 function extOf(mime) {
   if (mime === 'application/pdf') return '.pdf';
   if (mime === 'image/png') return '.png';
@@ -579,7 +595,7 @@ async function healthy() {
 }
 
 module.exports = {
-  pool, TEMPLATES, templateById, normalisePieces,
+  pool, TEMPLATES, templateById, normalisePieces, motifDeRejet, peutEtreForce,
   token, slug, statusOf, progressOf, createDossier,
   mapClient, listClients, getClient, ensureClient,
   listDossiers, countDossiers, getDossier, getDossierById, getByToken, insertDossier,

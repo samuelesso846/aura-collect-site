@@ -241,7 +241,9 @@ function cabinetDossier(d, base) {
       dateDocument: p.dateDocument || '',
       confidence: p.confidence,
       typeDetecte: p.typeDetecte || '',
-      at: p.at || ''
+      at: p.at || '',
+      forcable: store.peutEtreForce(p),
+      motifRejet: p.status === 'ko' ? store.motifDeRejet(p.reason) : ''
     }))
   };
 }
@@ -354,6 +356,29 @@ app.get('/api/clients/:id', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/* Le cabinet peut refuser une pièce déjà reçue et en demander une autre :
+   le client retrouve la pièce à redéposer sur son lien. */
+app.post('/api/dossiers/:id/pieces/:key/reject', requireAuth, async (req, res, next) => {
+  try {
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
+    if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
+    if (dossier.sealHash) return res.status(409).json({ error: 'Dossier scellé : plus modifiable.' });
+
+    const piece = dossier.pieces.find((p) => p.key === req.params.key);
+    if (!piece) return res.status(404).json({ error: 'Pièce introuvable.' });
+    if (!['ok', 'review', 'valide'].includes(piece.status)) {
+      return res.status(409).json({ error: 'Cette pièce est déjà en attente du client.' });
+    }
+
+    await store.updatePiece(dossier.id, piece.key, {
+      status: 'ko',
+      reason: 'Le cabinet demande une nouvelle version de cette pièce.'
+    });
+    const fresh = await store.getDossier(dossier.id, req.cabinetId);
+    res.json({ dossier: cabinetDossier(fresh, baseUrl(req)) });
+  } catch (err) { next(err); }
+});
+
 /* Le cabinet confirme une pièce : c'est le seul geste qui vaut validation. */
 app.post('/api/dossiers/:id/pieces/:key/confirm', requireAuth, async (req, res, next) => {
   try {
@@ -363,11 +388,24 @@ app.post('/api/dossiers/:id/pieces/:key/confirm', requireAuth, async (req, res, 
 
     const piece = dossier.pieces.find((p) => p.key === req.params.key);
     if (!piece) return res.status(404).json({ error: 'Pièce introuvable.' });
-    if (!['ok', 'review', 'valide'].includes(piece.status)) {
+
+    const acceptable = ['ok', 'review', 'valide'].includes(piece.status);
+    const forcable = store.peutEtreForce(piece);
+    if (!acceptable && !forcable) {
+      if (piece.status === 'ko') {
+        return res.status(409).json({
+          error: store.motifDeRejet(piece.reason) === 'lisible'
+            ? 'Pièce illisible : elle doit être reprise par le client, personne ne peut la valider telle quelle.'
+            : 'Pièce non conforme : elle doit être remplacée par le client.'
+        });
+      }
       return res.status(409).json({ error: 'Cette pièce n’est pas encore déposée.' });
     }
 
-    await store.updatePiece(dossier.id, piece.key, { status: 'valide', reason: 'Confirmée par le cabinet.' });
+    const reason = forcable
+      ? 'Validée par le cabinet malgré l’avis de l’IA. ' + piece.reason
+      : 'Confirmée par le cabinet.';
+    await store.updatePiece(dossier.id, piece.key, { status: 'valide', reason });
     const fresh = await store.getDossier(dossier.id, req.cabinetId);
     res.json({ dossier: cabinetDossier(fresh, baseUrl(req)) });
   } catch (err) { next(err); }
