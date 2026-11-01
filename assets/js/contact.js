@@ -64,15 +64,42 @@
       'Merci.'
     ].join('\n');
 
+    /* Repli : si l'enregistrement échoue, on propose la messagerie du visiteur. */
     var href = 'mailto:' + DEST + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-    window.location.href = href;
+    var link = '<a href="' + href + '" style="color:#0B7A5C;font-weight:600;text-decoration:underline">nous écrire depuis votre messagerie</a>';
 
-    if (ok) {
-      ok.innerHTML = 'Votre messagerie s\'ouvre avec la demande préremplie. Il ne reste qu\'à l\'envoyer. ' +
-        'Si rien ne s\'est passé, <a href="' + href + '" style="color:#0B7A5C;font-weight:600;text-decoration:underline">cliquez ici</a> ' +
-        'ou écrivez à ' + DEST + '.';
+    function show(html) {
+      if (!ok) return;
+      ok.innerHTML = html;
       ok.classList.add('is-on');
       ok.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+
+    var btn = form.querySelector('button[type="submit"], input[type="submit"]');
+    if (btn) btn.disabled = true;
+
+    fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prenom: prenom, nom: nom, email: email,
+        structure: structure, metier: metier, volume: volume, message: message
+      })
+    }).then(function (r) {
+      return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+    }).then(function (out) {
+      if (out.ok && out.d && out.d.ok) {
+        form.reset();
+        show('Demande enregistrée. Nous vous répondons sous 24 heures ouvrées, à l\'adresse ' + email + '.');
+      } else {
+        var msg = (out.d && out.d.error) ? out.d.error : 'L\'envoi n\'a pas abouti.';
+        show(msg + ' Vous pouvez aussi ' + link + ' ou écrire à ' + DEST + '.');
+      }
+    }).catch(function () {
+      show('Connexion interrompue. ' + link.charAt(0).toUpperCase() + link.slice(1) +
+           ', ou écrivez à ' + DEST + '.');
+    }).then(function () {
+      if (btn) btn.disabled = false;
+    });
   });
 })();

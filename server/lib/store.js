@@ -475,6 +475,29 @@ async function listOutbox(limit = 50) {
   return rows;
 }
 
+/* Demandes entrantes du formulaire de contact. Conservées même si l'envoi
+   d'email n'est pas configuré : c'est la seule trace fiable d'un prospect. */
+async function addLead(lead) {
+  const { rows } = await pool.query(
+    `insert into aura.leads (prenom, nom, email, structure, metier, volume, message, source, user_agent, ip)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id, created_at`,
+    [
+      lead.prenom || '', lead.nom || '', lead.email,
+      lead.structure || '', lead.metier || '', lead.volume || '',
+      lead.message || '', lead.source || 'contact',
+      lead.userAgent || '', lead.ip || ''
+    ]
+  );
+  return rows[0];
+}
+
+async function listLeads(limit = 100) {
+  const { rows } = await pool.query(
+    'select * from aura.leads order by created_at desc limit $1', [limit]
+  );
+  return rows;
+}
+
 async function healthy() {
   const { rows } = await pool.query('select 1 as ok');
   return rows[0].ok === 1;
@@ -485,5 +508,6 @@ module.exports = {
   token, slug, statusOf, progressOf, createDossier,
   mapClient, listClients, getClient, ensureClient,
   listDossiers, countDossiers, getDossier, getDossierById, getByToken, insertDossier,
-  updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy, sealDossier
+  updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy, sealDossier,
+  addLead, listLeads
 };

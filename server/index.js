@@ -384,6 +384,96 @@ app.get('/api/billing/plans', (req, res) => {
   });
 });
 
+/* Demande de contact publique.
+   Auparavant, le formulaire ouvrait la messagerie du visiteur : sur mobile, où
+   la plupart des prospects lisent, il n'y a souvent aucune application mail
+   configurée. La demande disparaissait sans laisser de trace. Elle est
+   désormais enregistrée en base, puis un email part si l'envoi est configuré. */
+app.post('/api/contact', async (req, res) => {
+  const b = req.body || {};
+  const clean = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
+  try {
+    const ip = req.ip || 'unknown';
+    if (!throttle(ip)) {
+      return res.status(429).json({ ok: false, error: 'Trop de demandes envoyées. Réessayez dans quelques minutes.' });
+    }
+
+    const lead = {
+      prenom: clean(b.prenom, 80),
+      nom: clean(b.nom, 80),
+      email: clean(b.email, 160).toLowerCase(),
+      structure: clean(b.structure, 160),
+      metier: clean(b.metier, 60),
+      volume: clean(b.volume, 60),
+      message: clean(b.message, 4000),
+      source: 'contact',
+      userAgent: clean(req.headers['user-agent'], 300),
+      ip
+    };
+
+    if (!lead.prenom || !lead.nom) {
+      return res.status(400).json({ ok: false, error: 'Indiquez votre prénom et votre nom.' });
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(lead.email)) {
+      return res.status(400).json({ ok: false, error: 'Adresse email invalide.' });
+    }
+
+    /* Deux filets successifs : la table dédiée, puis le journal d'envoi qui
+       existe déjà. Une demande ne doit jamais repartir sans trace, même si
+       la migration `leads.sql` n'a pas encore été exécutée. */
+    let saved = null;
+    let filed = false;
+    try {
+      saved = await store.addLead(lead);
+      filed = true;
+    } catch (err) {
+      console.error('[contact] table leads indisponible :', err.message);
+    }
+
+    const to = process.env.CONTACT_TO || 'samuelesso846@gmail.com';
+    const lines = [
+      'Nouvelle demande depuis le site Aura Collect.',
+      '',
+      'Nom : ' + lead.prenom + ' ' + lead.nom,
+      'Email : ' + lead.email,
+      'Structure : ' + (lead.structure || '—'),
+      'Métier : ' + (lead.metier || '—'),
+      'Dossiers par mois : ' + (lead.volume || '—'),
+      '',
+      'Pièces demandées aujourd’hui :',
+      lead.message || '—',
+      '',
+      'Reçue le ' + new Date().toISOString() + (saved ? ' (id ' + saved.id + ')' : '')
+    ];
+    try {
+      await mail.send({
+        to,
+        subject: 'Demande Aura Collect — ' + lead.prenom + ' ' + lead.nom +
+                 (lead.structure ? ' (' + lead.structure + ')' : ''),
+        text: lines.join('\n')
+      });
+      filed = true;
+    } catch (err) {
+      console.error('[contact] email non envoyé :', err.message);
+    }
+
+    if (!filed) {
+      return res.status(500).json({
+        ok: false,
+        error: 'Enregistrement impossible pour le moment. Écrivez-nous directement à ' + to + '.'
+      });
+    }
+
+    return res.json({ ok: true, id: saved ? saved.id : null });
+  } catch (err) {
+    console.error('[contact] enregistrement impossible :', err.message);
+    return res.status(500).json({
+      ok: false,
+      error: 'Enregistrement impossible pour le moment. Écrivez-nous directement à samuelesso846@gmail.com.'
+    });
+  }
+});
+
 /* Création de compte public : le cabinet choisit son offre, paie, puis son espace s'ouvre.
    Aucun accès n'est accordé avant la confirmation du paiement par FedaPay. */
 app.post('/api/signup', async (req, res, next) => {
