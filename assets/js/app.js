@@ -91,14 +91,26 @@
   /* ---------- rendu ---------- */
   function renderStats() {
     var ds = state.dossiers;
+    var attente = ds.filter(function (d) { return d.status === 'attente'; }).length;
+    var incomplet = ds.filter(function (d) { return d.status === 'incomplet'; }).length;
     var aValider = ds.filter(function (d) { return d.status === 'a_valider'; }).length;
     var scelles = ds.filter(function (d) { return d.status === 'scelle'; }).length;
-    var attente = ds.length - aValider - scelles;
 
-    $('#dashSub').textContent = ds.length
-      ? ds.length + ' dossier' + (ds.length > 1 ? 's' : '') + ' · ' + attente +
-        ' en cours · ' + aValider + ' à valider · ' + scelles + ' scellé' + (scelles > 1 ? 's' : '')
-      : 'Aucun dossier pour l\'instant.';
+    if (!ds.length) {
+      $('#dashSub').innerHTML = '<span class="dchip dchip--muted">Aucun dossier pour l\'instant</span>';
+      return;
+    }
+
+    function chip(n, label, tone) {
+      return '<span class="dchip dchip--' + tone + '"><b>' + n + '</b> ' + label + '</span>';
+    }
+    $('#dashSub').innerHTML = [
+      chip(ds.length, 'dossier' + (ds.length > 1 ? 's' : ''), 'total'),
+      chip(attente, 'en attente', 'attente'),
+      chip(incomplet, 'incomplet' + (incomplet > 1 ? 's' : ''), 'incomplet'),
+      chip(aValider, 'à valider', 'valider'),
+      chip(scelles, 'scellé' + (scelles > 1 ? 's' : ''), 'scelle')
+    ].join('');
   }
 
   function statusChip(d) {
@@ -107,9 +119,15 @@
   }
 
   var COLONNES = [
-    { label: 'En attente', test: function (d) { return d.status === 'attente'; } },
-    { label: 'Incomplet', test: function (d) { return d.status === 'incomplet'; } },
-    { label: 'Complet', test: function (d) { return d.status === 'a_valider' || d.status === 'scelle'; } }
+    { tone: 'attente', dot: '#FF9F43', label: 'En attente',
+      help: 'Le lien est parti, rien n\'est encore arrivé.',
+      test: function (d) { return d.status === 'attente'; } },
+    { tone: 'incomplet', dot: '#F0506E', label: 'Incomplet',
+      help: 'Des pièces manquent ou sont à refaire.',
+      test: function (d) { return d.status === 'incomplet'; } },
+    { tone: 'complet', dot: '#12A57C', label: 'Complet',
+      help: 'Tout est reçu. À valider ou déjà scellé.',
+      test: function (d) { return d.status === 'a_valider' || d.status === 'scelle'; } }
   ];
 
   function kanbanCard(d) {
@@ -117,15 +135,21 @@
       : d.status === 'a_valider' ? 'à valider' : '';
     var bar = (d.status === 'scelle' || d.status === 'a_valider') ? 'is-ok'
       : d.status === 'incomplet' ? 'is-warn' : '';
-    return '<button class="kcard" data-id="' + d.id + '">' +
-      '<div class="kcard__top"><span class="kcard__name">' + esc(d.client) + '</span>' +
+    var relance = (d.status !== 'scelle' && d.obstacles && d.obstacles.length)
+      ? '<button class="kcard__act" data-remind="' + d.id + '">Relancer</button>'
+      : '';
+    return '<div class="kcard kcard--' + d.status + '" data-id="' + d.id + '">' +
+      '<div class="kcard__top">' +
+        '<span class="kcard__av">' + initials(d.clientName || d.client) + '</span>' +
+        '<span class="kcard__name">' + esc(d.clientName || d.client) + '</span>' +
         (etat ? '<span class="kcard__flag kcard__flag--' + d.status + '">' + etat + '</span>' : '') +
       '</div>' +
       '<div class="kcard__tpl">' + esc(d.templateName) + '</div>' +
       '<div class="kcard__bar ' + bar + '"><i style="width:' + d.progress.pct + '%"></i></div>' +
       '<div class="kcard__foot"><span>' + d.progress.ok + '/' + d.progress.total + ' pièces</span>' +
         '<span>' + rel(d.lastActivity) + '</span></div>' +
-    '</button>';
+      relance +
+    '</div>';
   }
 
   function renderList() {
@@ -141,84 +165,38 @@
       var items = state.dossiers.filter(col.test).sort(function (a, b) {
         return new Date(b.lastActivity) - new Date(a.lastActivity);
       });
-      html += '<div class="kanban__col">' +
-        '<div class="kanban__head"><span>' + col.label + '</span><b>' + items.length + '</b></div>' +
+      html += '<div class="kanban__col kanban__col--' + col.tone + '">' +
+        '<div class="kanban__head"><span class="kanban__dot" style="background:' + col.dot + '"></span>' +
+          '<span class="kanban__label">' + col.label + '</span>' +
+          '<b>' + items.length + '</b></div>' +
         '<div class="kanban__body">' +
           (items.length ? items.map(kanbanCard).join('')
-            : '<div class="kanban__void">Aucun dossier</div>') +
+            : '<div class="kanban__void">' + col.help + '</div>') +
         '</div></div>';
     });
     html += '</div>';
 
     $('#listWrap').innerHTML = html;
     $$('.kcard').forEach(function (c) {
-      c.addEventListener('click', function () { openDrawer(c.dataset.id); });
+      c.addEventListener('click', function (ev) {
+        if (ev.target.dataset && ev.target.dataset.remind) return;
+        openDrawer(c.dataset.id);
+      });
     });
-  }
-
-  /* Écran du matin : ce que le client doit faire, et ce qui attend votre décision.
-     Trié du plus ancien au plus récent — le dossier qui dort est celui qui coûte. */
-  function renderTodo() {
-    var wrap = $('#todoWrap');
-    if (!wrap) return;
-
-    var pourClient = state.dossiers
-      .filter(function (d) { return d.status !== 'scelle' && d.obstacles.length; })
-      .sort(function (a, b) { return new Date(a.lastActivity) - new Date(b.lastActivity); });
-
-    var pourMoi = state.dossiers
-      .filter(function (d) { return d.status === 'a_valider'; })
-      .sort(function (a, b) { return new Date(a.lastActivity) - new Date(b.lastActivity); });
-
-    if (!pourClient.length && !pourMoi.length) {
-      wrap.innerHTML = '<div class="todo todo--empty"><b>Tout est à jour.</b> ' +
-        'Aucun dossier en attente de pièce ou de décision.</div>';
-      return;
-    }
-
-    function ligne(d, action) {
-      var manque = action === 'client'
-        ? d.obstacles.slice(0, 3).map(function (p) { return p.label; }).join(', ') +
-          (d.obstacles.length > 3 ? ' +' + (d.obstacles.length - 3) : '')
-        : d.progress.ok + ' pièces reçues, à confirmer';
-      var btn = action === 'client'
-        ? '<a class="btn btn--ghost btn--xs" target="_blank" rel="noopener" href="https://wa.me/?text=' +
-            encodeURIComponent('Bonjour ' + (d.clientName || d.client) + ', il manque ' + d.obstacles.length +
-              ' pièce(s) pour votre dossier : ' + d.link) + '">Relancer</a>'
-        : '<button class="btn btn--primary btn--xs" data-open="' + d.id + '">Trancher</button>';
-      return '<div class="todo__row">' +
-        '<div class="todo__who"><b>' + esc(d.clientName || d.client) + '</b>' +
-          '<span>' + esc(manque) + '</span></div>' +
-        '<div class="todo__age">' + rel(d.lastActivity) + '</div>' +
-        btn +
-      '</div>';
-    }
-
-    var html = '<section class="todo"><div class="todo__head">' +
-      '<h2>À faire maintenant</h2>' +
-      '<span class="todo__sub">' + pourMoi.length + ' à trancher · ' + pourClient.length + ' client(s) à relancer</span>' +
-    '</div><div class="todo__grid">';
-
-    html += '<div class="todo__col"><h3>Le client doit agir <span>' + pourClient.length + '</span></h3>';
-    html += pourClient.length
-      ? pourClient.map(function (d) { return ligne(d, 'client'); }).join('')
-      : '<p class="todo__none">Rien à réclamer.</p>';
-    html += '</div>';
-
-    html += '<div class="todo__col"><h3>Vous devez trancher <span>' + pourMoi.length + '</span></h3>';
-    html += pourMoi.length
-      ? pourMoi.map(function (d) { return ligne(d, 'moi'); }).join('')
-      : '<p class="todo__none">Aucun dossier complet en attente.</p>';
-    html += '</div>';
-
-    html += '</div></section>';
-    wrap.innerHTML = html;
-  }
-
-  function render() {
-    renderStats();
-    renderTodo();
-    renderList();
+    $$('[data-remind]').forEach(function (b) {
+      b.addEventListener('click', async function (ev) {
+        ev.stopPropagation();
+        var t = b.textContent;
+        b.disabled = true;
+        b.textContent = '…';
+        try {
+          await api('/api/dossiers/' + b.dataset.remind + '/remind', { method: 'POST' });
+          toast('Relance prête : le lien est renvoyé.');
+        } catch (e) { toast(e.message, true); }
+        b.disabled = false;
+        b.textContent = t;
+      });
+    });
   }
 
   /* ---------- détail ---------- */
