@@ -59,7 +59,7 @@
       <h3>Nous écrire</h3>
       <p>Pas de formulaire à remplir, pas de rappel commercial. Un email, et une réponse personnelle sous 24 h ouvrées.</p>
       <p style="margin-top:18px">
-        <a class="btn btn--primary btn--block" href="mailto:samuelesso846@gmail.com">samuelesso846@gmail.com</a>
+        <a class="btn btn--primary btn--block mailLink" href="#" title="Ouvre votre logiciel de messagerie">Écrire à l'équipe</a>
       </p>
       <p style="font-size:12px;color:var(--muted);margin-top:16px;line-height:1.6">
         Vous pouvez aussi commencer tout de suite : l'espace se crée en trois minutes, sans configuration préalable, et l'essai dure 7 jours.
@@ -162,5 +162,17 @@
 </footer>
 
 <script src="assets/js/site.js"></script>
+<script>
+/* Adresse assemblee au clic : elle n'apparait pas dans le texte de la page. */
+(function () {
+  var box = document.querySelectorAll('.mailLink');
+  for (var i = 0; i < box.length; i++) {
+    box[i].addEventListener('click', function (e) {
+      e.preventDefault();
+      window.location.href = 'mailto:' + ['samuelesso846', 'gmail.com'].join('@');
+    });
+  }
+})();
+</script>
 </body>
 </html>
