@@ -1,3 +1,9 @@
+> **NON ACTIVÉ — décision du 2 novembre 2026.**
+> Aucune sauvegarde automatique n'est en place. Le dépôt GitHub est **public** :
+> un export de la base y serait téléchargeable par n'importe qui, pièces
+> d'identité et fiches de paie comprises. La procédure ci-dessous est conservée
+> pour le jour où le dépôt sera passé en privé, avant les premiers clients réels.
+
 # Sauvegarder la base Aura Collect
 
 Supabase **Free n'inclut aucune sauvegarde automatique**. Les sauvegardes
