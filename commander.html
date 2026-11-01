@@ -84,21 +84,10 @@
           <div class="field">
             <label>Offre</label>
             <div class="ord__choice" id="planChoice"></div>
+            <div class="field__hint">Le volume dont vous avez besoin pendant l'essai. Modifiable ensuite, sans frais.</div>
           </div>
 
-          <div class="field" style="margin-bottom:6px">
-            <label>Durée</label>
-            <div class="ord__choice" id="cycleChoice">
-              <label class="ord__opt" data-months="1">
-                <input type="radio" name="months" value="1" checked>
-                <span><b>Mensuel</b><span>Sans engagement</span></span>
-              </label>
-              <label class="ord__opt" data-months="12">
-                <input type="radio" name="months" value="12">
-                <span><b>Annuel</b><span>Deux mois offerts</span></span>
-              </label>
-            </div>
-          </div>
+
 
           <button class="btn btn--primary btn--block" type="submit" id="submitBtn" style="margin-top:18px">
             Ouvrir mon espace
@@ -116,12 +105,12 @@
         <h3>Récapitulatif</h3>
         <div class="ord__total" id="total">—</div>
         <div class="ord__lines">
-          <div class="ord__line"><span>Offre</span><b id="sumPlan">—</b></div>
-          <div class="ord__line"><span>Puis</span><b id="sumCycle">—</b></div>
-          <div class="ord__line"><span>Devise</span><b>FCFA</b></div>
+          <div class="ord__line"><span>Aujourd'hui</span><b>0 FCFA</b></div>
+          <div class="ord__line"><span>Après l'essai</span><b>Vous décidez</b></div>
+          <div class="ord__line"><span>Carte bancaire</span><b>Aucune</b></div>
         </div>
         <p class="ord__note">
-          Sept jours d'essai, puis l'offre choisie si elle vous convient. Aucune donnée bancaire n'est stockée par Aura Collect.
+          Aucun paiement n'est demandé. Au huitième jour, vous activez l'abonnement depuis votre espace — ou vous laissez le compte s'arrêter, sans frais.
         </p>
       </aside>
 
@@ -129,6 +118,6 @@
   </div>
 </main>
 
-<script src="assets/js/commander.js?v=3"></script>
+<script src="assets/js/commander.js?v=4"></script>
 </body>
 </html>
