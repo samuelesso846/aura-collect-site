@@ -651,7 +651,7 @@ app.post('/api/dossiers/:id/remind', requireAuth, async (req, res, next) => {
   try {
     const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
-    const missing = dossier.pieces.filter((p) => p.status !== 'ok').length;
+    const missing = dossier.pieces.filter((p) => !['ok', 'review', 'valide'].includes(p.status)).length;
     if (!missing) return res.status(400).json({ error: 'Le dossier est déjà complet.' });
     const entry = await mail.sendReminder(dossier, missing, baseUrl(req));
     res.json({ ok: true, mail: { mode: entry.mode, status: entry.status }, missing });
@@ -672,7 +672,7 @@ app.post('/api/dossiers/:id/seal', requireAuth, async (req, res, next) => {
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (dossier.sealHash) return res.status(409).json({ error: 'Ce dossier est déjà scellé.' });
 
-    const blocking = dossier.pieces.filter((p) => p.status !== 'ok');
+    const blocking = dossier.pieces.filter((p) => !['ok', 'valide'].includes(p.status));
     if (blocking.length) {
       return res.status(409).json({
         error: blocking.length + ' obstacle' + (blocking.length > 1 ? 's' : '') + ' empêche' + (blocking.length > 1 ? 'nt' : '') + ' le scellement.',

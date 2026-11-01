@@ -29,7 +29,7 @@ async function buildManifest(dossier, cabinet, sealedAt) {
   for (const p of dossier.pieces) {
     let digest = null;
     let size = null;
-    if (p.stored && p.status === 'ok') {
+    if (p.stored && ['ok', 'valide'].includes(p.status)) {
       const file = await store.readFile(dossier.id, p.key);
       if (file) {
         digest = sha256(file.content);

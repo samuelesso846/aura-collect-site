@@ -56,7 +56,7 @@ async function summaryPdf(dossier, tplName) {
   y -= 26;
 
   dossier.pieces.forEach((piece, i) => {
-    const ok = piece.status === 'ok';
+    const ok = ['ok', 'valide'].includes(piece.status);
     const review = piece.status === 'review';
     const label = sanitize(piece.label);
     page.drawText(String(i + 1).padStart(2, '0'), { x: M, y, size: 9, font, color: muted });
@@ -117,7 +117,7 @@ async function buildZip(res, dossier, tplName) {
 
   for (const piece of dossier.pieces) {
     /* seules les pièces validées entrent dans le dossier remis au cabinet */
-    if (!piece.stored || piece.status !== 'ok') continue;
+    if (!piece.stored || !['ok', 'valide'].includes(piece.status)) continue;
     const file = await store.readFile(dossier.id, piece.key);
     if (file && file.content) {
       archive.append(file.content, { name: folder + '/' + exportName(dossier, piece) });
@@ -133,7 +133,7 @@ async function buildZip(res, dossier, tplName) {
     archive.append(JSON.stringify(dossier.sealManifest, null, 2), { name: folder + '/manifeste.json' });
   }
 
-  const missing = dossier.pieces.filter((p) => p.status !== 'ok');
+  const missing = dossier.pieces.filter((p) => !['ok', 'review', 'valide'].includes(p.status));
   const note = [
     'AURA COLLECT — dossier ' + dossier.client,
     'Modèle : ' + tplName,
