@@ -78,7 +78,6 @@
     $('#loginView').hidden = false;
     $('#dashView').hidden = true;
     $('#logoutBtn').hidden = true;
-    var pb = $('#pwdBtn'); if (pb) pb.hidden = true;
     setTimeout(function () { var p = $('#password'); if (p) p.focus(); }, 50);
   }
 
@@ -87,7 +86,6 @@
     $('#loginView').hidden = true;
     $('#dashView').hidden = false;
     $('#logoutBtn').hidden = false;
-    var pb2 = $('#pwdBtn'); if (pb2) pb2.hidden = false;
   }
 
   /* ---------- rendu ---------- */
@@ -514,56 +512,6 @@
       $('#loginBtn').disabled = false;
     }
   });
-
-  /* ---------- mot de passe ---------- */
-  var pwdModal = $('#pwdModal');
-  function pwdClose() {
-    if (!pwdModal) return;
-    pwdModal.hidden = true;
-    ['pwdCurrent', 'pwdNext', 'pwdConfirm'].forEach(function (id) {
-      var el = document.getElementById(id); if (el) el.value = '';
-    });
-    var m = $('#pwdMsg'); if (m) { m.textContent = ''; m.style.color = ''; }
-  }
-  if ($('#pwdBtn')) {
-    $('#pwdBtn').addEventListener('click', function () {
-      if (pwdModal) pwdModal.hidden = false;
-      var c = $('#pwdCurrent'); if (c) c.focus();
-    });
-  }
-  if ($('#pwdCancel')) $('#pwdCancel').addEventListener('click', pwdClose);
-  if (pwdModal) {
-    pwdModal.addEventListener('click', function (e) { if (e.target === pwdModal) pwdClose(); });
-  }
-  if ($('#pwdSave')) {
-    $('#pwdSave').addEventListener('click', async function () {
-      var m = $('#pwdMsg');
-      var current = ($('#pwdCurrent') || {}).value || '';
-      var next = ($('#pwdNext') || {}).value || '';
-      var confirm = ($('#pwdConfirm') || {}).value || '';
-      function say(t, ok) { if (m) { m.textContent = t; m.style.color = ok ? '#0B7A5C' : '#B42318'; } }
-      if (!current) return say('Saisissez votre mot de passe actuel.', false);
-      if (next.length < 8) return say('Le nouveau mot de passe doit faire au moins 8 caractères.', false);
-      if (next !== confirm) return say('Les deux nouveaux mots de passe ne correspondent pas.', false);
-      this.disabled = true;
-      try {
-        var r = await fetch('/api/password', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ current: current, next: next })
-        });
-        var d = await r.json();
-        if (r.ok && d.ok) {
-          say('Mot de passe modifié. Il sera demandé à la prochaine connexion.', true);
-          setTimeout(pwdClose, 1800);
-        } else {
-          say(d.error || 'Modification impossible.', false);
-        }
-      } catch (e) {
-        say('Connexion interrompue. Réessayez.', false);
-      }
-      this.disabled = false;
-    });
-  }
 
   /* ---------- mot de passe oublié ---------- */
   if ($('#forgotLink')) {

@@ -27,8 +27,7 @@
     <span class="ai-pill" id="aiPill"><i></i><span>Vérification IA</span></span>
     <a class="btn btn--ghost btn--sm" href="abonnement">Abonnement</a>
     <a class="btn btn--ghost btn--sm" href="index.html">Site</a>
-    <button class="btn btn--ghost btn--sm" id="pwdBtn" hidden>Mot de passe</button>
-      <button class="btn btn--ghost btn--sm" id="logoutBtn" hidden>Déconnexion</button>
+    <button class="btn btn--ghost btn--sm" id="logoutBtn" hidden>Déconnexion</button>
   </div>
 </header>
 
@@ -136,32 +135,7 @@
 </div>
 <div class="overlay" id="drawerOverlay" style="z-index:105"></div>
 
-<script src="assets/js/app.js?v=5"></script>
-
-  <!-- changement de mot de passe -->
-  <div id="pwdModal" hidden style="position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:60">
-    <div style="background:#fff;border-radius:16px;padding:24px;max-width:420px;width:100%;box-shadow:0 20px 50px rgba(15,23,42,.25)">
-      <h3 style="margin:0 0 4px;font-size:18px">Changer le mot de passe</h3>
-      <p style="margin:0 0 16px;font-size:13.5px;color:#64748b">Huit caractères minimum.</p>
-      <div class="field">
-        <label for="pwdCurrent">Mot de passe actuel</label>
-        <input id="pwdCurrent" type="password" autocomplete="current-password">
-      </div>
-      <div class="field">
-        <label for="pwdNext">Nouveau mot de passe</label>
-        <input id="pwdNext" type="password" autocomplete="new-password">
-      </div>
-      <div class="field">
-        <label for="pwdConfirm">Confirmer le nouveau mot de passe</label>
-        <input id="pwdConfirm" type="password" autocomplete="new-password">
-      </div>
-      <p id="pwdMsg" style="font-size:13.5px;margin:4px 0 14px"></p>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button class="btn btn--ghost btn--sm" type="button" id="pwdCancel">Annuler</button>
-        <button class="btn btn--primary btn--sm" type="button" id="pwdSave">Enregistrer</button>
-      </div>
-    </div>
-  </div>
+<script src="assets/js/app.js?v=6"></script>
 
 </body>
 </html>
