@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  var DEST = 'bonjour@auracollect.fr'; // ← à remplacer par votre adresse réelle
+  var DEST = 'samuelesso846@gmail.com'; // adresse de réception des demandes
   var form = document.getElementById('contactForm');
   if (!form) return;
   var ok = document.getElementById('formOk');
