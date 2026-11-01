@@ -165,16 +165,48 @@ function setSessionCookie(res, value) {
     (process.env.NODE_ENV === 'production' ? '; Secure' : ''));
 }
 
-/* ---------- limitation des tentatives ---------- */
-const attempts = new Map();
-function throttle(ip) {
+/* ---------- limitation des tentatives de connexion ----------
+   Seuls les échecs comptent : une connexion réussie remet le compteur à zéro.
+   Deux verrous : un par couple adresse/email (5 échecs), un par adresse seule
+   (30 échecs) pour arrêter quelqu'un qui essaie beaucoup d'emails différents. */
+const LOGIN_WINDOW = 15 * 60 * 1000;
+const LOGIN_MAX_PAIR = 5;
+const LOGIN_MAX_IP = 30;
+const loginHits = new Map();
+
+function hitKey(kind, value) { return kind + '|' + value; }
+
+function loginWait(kind, value) {
+  const rec = loginHits.get(hitKey(kind, value));
+  if (!rec) return 0;
   const now = Date.now();
-  const rec = attempts.get(ip) || { count: 0, until: 0 };
-  if (rec.until > now) return false;
+  if (rec.until > now) return Math.ceil((rec.until - now) / 1000);
+  if (now - rec.since > LOGIN_WINDOW) loginHits.delete(hitKey(kind, value));
+  return 0;
+}
+
+function loginFail(kind, value, max) {
+  const now = Date.now();
+  const key = hitKey(kind, value);
+  let rec = loginHits.get(key);
+  if (!rec || now - rec.since > LOGIN_WINDOW) rec = { count: 0, since: now, until: 0 };
   rec.count += 1;
-  if (rec.count > 8) { rec.count = 0; rec.until = now + 5 * 60 * 1000; }
-  attempts.set(ip, rec);
-  return rec.until <= now;
+  if (rec.count >= max) rec.until = now + LOGIN_WINDOW;
+  loginHits.set(key, rec);
+  if (loginHits.size > 5000) {
+    for (const [k, v] of loginHits) {
+      if (v.until <= now && now - v.since > LOGIN_WINDOW) loginHits.delete(k);
+    }
+  }
+}
+
+function loginClear(kind, value) { loginHits.delete(hitKey(kind, value)); }
+
+function tooMany(res, seconds) {
+  res.setHeader('Retry-After', String(seconds));
+  return res.status(429).json({
+    error: 'Trop de tentatives. Réessayez dans ' + Math.ceil(seconds / 60) + ' minute' + (seconds > 60 ? 's' : '') + '.'
+  });
 }
 
 /* ---------- vues ---------- */
@@ -262,16 +294,31 @@ const upload = multer({
 app.post('/api/login', async (req, res, next) => {
   try {
     const ip = req.ip || 'unknown';
-    if (!throttle(ip)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans quelques minutes.' });
-
     const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+
+    const waitIp = loginWait('ip', ip);
+    if (waitIp) return tooMany(res, waitIp);
+    if (email) {
+      const waitPair = loginWait('pair', ip + '|' + email);
+      if (waitPair) return tooMany(res, waitPair);
+    }
+
     const given = String((req.body && req.body.password) || '');
-    if (!given) return res.status(401).json({ error: 'Mot de passe requis.' });
+    if (!given) {
+      loginFail('ip', ip, LOGIN_MAX_IP);
+      return res.status(401).json({ error: 'Mot de passe requis.' });
+    }
 
     let cabinet = null;
     if (email) {
       cabinet = await billing.findByEmail(email);
-      if (!cabinet) return res.status(401).json({ error: 'Aucun compte ne correspond à cet email.' });
+      if (!cabinet) {
+        loginFail('ip', ip, LOGIN_MAX_IP);
+        loginFail('pair', ip + '|' + email, LOGIN_MAX_PAIR);
+        // Même message que pour un mauvais mot de passe : on n'apprend pas
+        // à un inconnu quelles adresses ont un compte chez nous.
+        return res.status(401).json({ error: 'Identifiants incorrects.' });
+      }
     } else {
       // Accès historique (avant les comptes) : un seul cabinet, mot de passe partagé.
       cabinet = await billing.ensureCabinet();
@@ -285,7 +332,14 @@ app.post('/api/login', async (req, res, next) => {
       const b = Buffer.from(PASSWORD);
       ok = a.length === b.length && crypto.timingSafeEqual(a, b);
     }
-    if (!ok) return res.status(401).json({ error: 'Identifiants incorrects.' });
+    if (!ok) {
+      loginFail('ip', ip, LOGIN_MAX_IP);
+      if (email) loginFail('pair', ip + '|' + email, LOGIN_MAX_PAIR);
+      return res.status(401).json({ error: 'Identifiants incorrects.' });
+    }
+
+    loginClear('ip', ip);
+    if (email) loginClear('pair', ip + '|' + email);
 
     cabinet = await billing.startTrialIfMissing(cabinet);
     setSessionCookie(res, issueSession(cabinet.id));
