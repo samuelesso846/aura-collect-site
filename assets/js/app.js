@@ -466,11 +466,11 @@
       var pill = $('#aiPill');
       if (me.ai && me.ai.ready) {
         pill.classList.remove('is-off');
-        pill.querySelector('span').textContent = 'Groq · ' + me.ai.model.replace(/^.*\//, '').slice(0, 22);
+        pill.querySelector('span').textContent = 'Vérification IA active';
       } else {
         pill.classList.add('is-off');
         pill.querySelector('span').textContent = 'IA non configurée';
-        pill.title = 'Renseignez GROQ_API_KEY pour activer la vérification automatique.';
+        pill.title = 'La vérification automatique est momentanément indisponible. Les pièces restent déposables et validables manuellement.';
       }
 
       if (me.authenticated) await load();
