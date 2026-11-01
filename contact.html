@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Contact &amp; démo — Aura Collect</title>
-<meta name="description" content="Réservez une démo de 20 minutes d'Aura Collect avec vos propres modèles de pièces. Réponse sous 24 h ouvrées.">
+<title>Contact — Aura Collect</title>
+<meta name="description" content="Une question sur Aura Collect ? Écrivez-nous, nous répondons personnellement sous 24 h ouvrées.">
 <meta name="theme-color" content="#F7F8FC">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,7 @@
     </nav>
     <div class="nav__cta">
       <a class="btn btn--ghost btn--sm" href="app?login=1">Se connecter</a>
-      <a class="btn btn--primary btn--sm" href="#formulaire">Demander un accès</a>
+      <a class="btn btn--primary btn--sm" href="commander.html?plan=starter">Créer mon espace</a>
       <button class="nav__burger" id="burger" aria-label="Ouvrir le menu" aria-expanded="false"><span></span></button>
     </div>
   </div>
@@ -49,70 +49,22 @@
   <div class="container">
     <span class="eyebrow">Contact</span>
     <h1>Votre espace, <em>vos modèles</em>, vos dossiers.</h1>
-    <p class="lede">Décrivez les pièces que vous demandez à vos clients. Nous ouvrons votre espace, configurons vos modèles et vous transmettons vos accès sous 24 h ouvrées.</p>
+    <p class="lede">Une question avant de commencer, un volume inhabituel, un besoin d'accompagnement ? Écrivez-nous, nous répondons personnellement.</p>
   </div>
 </section>
 
 <section class="section" style="padding-top:34px">
   <div class="container contact-grid">
-    <div class="card-form" id="formulaire">
-      <h3>Demander un accès</h3>
-      <p>Réponse sous 24 h ouvrées. Aucun engagement, aucune séquence de relance commerciale.</p>
-
-      <form id="contactForm" novalidate>
-        <div class="form-row">
-          <div class="field">
-            <label for="prenom">Prénom</label>
-            <input id="prenom" name="prenom" type="text" autocomplete="given-name" required placeholder="Prénom">
-          </div>
-          <div class="field">
-            <label for="nom">Nom</label>
-            <input id="nom" name="nom" type="text" autocomplete="family-name" required placeholder="Nom">
-          </div>
-        </div>
-        <div class="field">
-          <label for="email">Email professionnel</label>
-          <input id="email" name="email" type="email" autocomplete="email" required placeholder="vous@votre-cabinet.com">
-        </div>
-        <div class="form-row">
-          <div class="field">
-            <label for="structure">Structure</label>
-            <input id="structure" name="structure" type="text" autocomplete="organization" placeholder="Nom de votre structure">
-          </div>
-          <div class="field">
-            <label for="metier">Métier</label>
-            <select id="metier" name="metier">
-              <option>Expertise comptable</option>
-              <option>Courtage / crédit</option>
-              <option>Immobilier</option>
-              <option>RH / recrutement</option>
-              <option>Autre</option>
-            </select>
-          </div>
-        </div>
-        <div class="field">
-          <label for="volume">Dossiers ouverts par mois</label>
-          <select id="volume" name="volume">
-            <option>Moins de 10</option>
-            <option selected>10 à 40</option>
-            <option>40 à 100</option>
-            <option>Plus de 100</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="message">Quelles pièces demandez-vous aujourd'hui ?</label>
-          <textarea id="message" name="message" placeholder="Ex. : avis d'imposition, 3 bulletins de salaire, justificatif de domicile de moins de 3 mois, pièce d'identité…"></textarea>
-          <div class="field__hint">Deux ou trois lignes suffisent : nous préparons vos modèles avant l'ouverture.</div>
-        </div>
-        <button type="submit" class="btn btn--primary btn--block" style="margin-top:8px">
-          Envoyer ma demande
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
-        </button>
-        <p style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5">
-          En envoyant ce formulaire, vous acceptez d'être contacté au sujet de votre demande. Vos données ne sont ni revendues ni utilisées pour de la prospection tierce.
-        </p>
-        <div class="form-ok" id="formOk" role="status"></div>
-      </form>
+    <div class="card-form" id="ecrire">
+      <h3>Nous écrire</h3>
+      <p>Pas de formulaire à remplir, pas de rappel commercial. Un email, et une réponse personnelle sous 24 h ouvrées.</p>
+      <p style="margin-top:18px">
+        <a class="btn btn--primary btn--block" href="mailto:samuelesso846@gmail.com">samuelesso846@gmail.com</a>
+      </p>
+      <p style="font-size:12px;color:var(--muted);margin-top:16px;line-height:1.6">
+        Vous pouvez aussi commencer tout de suite : l'espace se crée en trois minutes, sans configuration préalable, et l'essai dure 7 jours.
+      </p>
+      <p style="margin-top:10px"><a href="commander.html?plan=starter" style="color:var(--violet);font-weight:600;font-size:13px">Créer mon espace &rarr;</a></p>
     </div>
 
     <div>
@@ -128,15 +80,7 @@
         </ul>
       </div>
 
-      <div style="margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px">
-        <h4 style="font-size:14px;letter-spacing:-.01em">Vous préférez écrire directement ?</h4>
-        <p style="font-size:13px;color:var(--slate);margin-top:8px;line-height:1.55">
-          Écrivez à <a href="mailto:samuelesso846@gmail.com" style="color:var(--violet);font-weight:600">samuelesso846@gmail.com</a> — nous répondons personnellement, sous 24 h ouvrées.
-        </p>
-        <p style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.55">
-          Pas de serveur de démonstration : la démo se fait en visioconférence, sur votre cas, avec un accès temporaire.
-        </p>
-      </div>
+      
 
       <div style="margin-top:16px;display:flex;gap:10px;align-items:flex-start;font-size:11.5px;color:var(--muted);line-height:1.5">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:0 0 16px;margin-top:1px;color:var(--green)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -218,6 +162,5 @@
 </footer>
 
 <script src="assets/js/site.js"></script>
-<script src="assets/js/contact.js?v=2"></script>
 </body>
 </html>
