@@ -81,7 +81,14 @@ function accessOf(cabinet) {
 
   let state = 'active';
   if (!limit) state = 'suspended';
-  else if (now > limit) state = now - limit > GRACE_DAYS * 86400000 ? 'suspended' : 'grace';
+  else if (now > limit) {
+    /* La période de grâce protège un abonnement payé qui arrive à échéance :
+       le cabinet garde quelques jours pour renouveler sans être coupé en plein
+       dossier. Elle ne doit pas prolonger un essai non converti — sans quoi un
+       essai de 7 jours offre 14 jours d'accès réels. */
+    const trialOnly = !paidUntil || (trialEnds !== null && paidUntil <= trialEnds);
+    state = trialOnly || now - limit > GRACE_DAYS * 86400000 ? 'suspended' : 'grace';
+  }
   else if (cabinet.plan_status === 'trialing' && trialEnds && trialEnds >= now && (!paidUntil || paidUntil < now)) state = 'trialing';
 
   return {
