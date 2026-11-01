@@ -199,6 +199,11 @@
     });
   }
 
+  function render() {
+    renderStats();
+    renderList();
+  }
+
   /* ---------- détail ---------- */
   function pieceRow(d, p) {
     var accepted = p.status === 'ok' || p.status === 'valide';
