@@ -388,6 +388,58 @@ app.get('/api/billing/plans', (req, res) => {
   });
 });
 
+/* Changement de mot de passe depuis l'espace cabinet. Le mot de passe actuel
+   est exigé : une session laissée ouverte sur un poste partagé ne doit pas
+   suffire à verrouiller le compte de son propriétaire. */
+app.post('/api/password', requireAuth, async (req, res) => {
+  try {
+    const { current, next } = req.body || {};
+    const cabinet = await billing.findById(req.cabinetId);
+    if (!cabinet) return res.status(401).json({ ok: false, error: 'Session expirée.' });
+
+    if (!cabinet.password_hash || !verifyPassword(String(current || ''), cabinet.password_hash)) {
+      return res.status(400).json({ ok: false, error: 'Le mot de passe actuel est incorrect.' });
+    }
+    if (String(next || '').length < 8) {
+      return res.status(400).json({ ok: false, error: 'Le nouveau mot de passe doit faire au moins 8 caractères.' });
+    }
+
+    await store.setPassword(cabinet.id, hashPassword(String(next)));
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[password] échec :', err.message);
+    return res.status(500).json({ ok: false, error: 'Modification impossible pour le moment.' });
+  }
+});
+
+/* Demande de réinitialisation, sans compte ni session. Enregistrée comme les
+   demandes de contact : sans envoi d'email configuré, c'est la seule façon de
+   ne pas perdre la demande. La réponse est toujours identique, pour ne pas
+   révéler quelles adresses possèdent un compte. */
+app.post('/api/password/reset-request', async (req, res) => {
+  const email = String((req.body || {}).email || '').trim().toLowerCase().slice(0, 160);
+  try {
+    if (!throttle(req.ip || 'unknown')) {
+      return res.status(429).json({ ok: false, error: 'Trop de demandes. Réessayez dans quelques minutes.' });
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ ok: false, error: 'Adresse email invalide.' });
+    }
+    await store.addLead({
+      prenom: '', nom: '', email,
+      structure: '', metier: '', volume: '',
+      message: 'Demande de réinitialisation du mot de passe.',
+      source: 'reset',
+      userAgent: String(req.headers['user-agent'] || '').slice(0, 300),
+      ip: req.ip || ''
+    });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[password] demande de réinitialisation :', err.message);
+    return res.status(500).json({ ok: false, error: 'Demande impossible pour le moment.' });
+  }
+});
+
 /* Demande de contact publique.
    Auparavant, le formulaire ouvrait la messagerie du visiteur : sur mobile, où
    la plupart des prospects lisent, il n'y a souvent aucune application mail

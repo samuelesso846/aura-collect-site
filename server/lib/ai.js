@@ -21,7 +21,7 @@ function status() {
   };
 }
 
-const SYSTEM = `Tu es un contrôleur de conformité documentaire pour un cabinet français.
+const SYSTEM = `Tu es un contrôleur de conformité documentaire pour un cabinet ou une agence.
 On te confie une pièce justificative à vérifier. Tu dois répondre UNIQUEMENT par un objet JSON valide, sans texte autour.
 
 Schéma exact :
@@ -41,17 +41,37 @@ Règles :
 - date_valide = false si la date du document ne respecte pas la règle de validité fournie. Si aucune date n'est visible, mets date_document à null et date_valide à false.
 - motif : explique au client ce qu'il doit faire, en une phrase, sans jargon. Si tout est bon, dis simplement que le document est accepté.
 - confiance : entre 0 et 1, ta certitude globale.
+- Une pièce générique ("Première pièce", "Deuxième pièce", règle « selon vos règles ») n'impose aucune nature : type_conforme vaut true dès que l'image contient un document, et l'absence de date ne rend pas la pièce invalide.
 - Ne devine jamais une date : si elle n'est pas lisible, elle est null.`;
+
+/* Un modèle « sur-mesure » ne dit pas quelle pièce est attendue : ses libellés
+   sont « Première pièce », « Deuxième pièce ». Sans cette distinction, le
+   contrôleur refusait tout document en répondant qu'il n'était pas une
+   « Deuxième pièce ». On ne juge alors que la lisibilité. */
+const GENERIC_LABEL = /^(premi[èe]re|deuxi[èe]me|troisi[èe]me|quatri[èe]me|cinqui[èe]me|sixi[èe]me|septi[èe]me|huiti[èe]me|neuvi[èe]me|dixi[èe]me)\s+pi[èe]ce\b/i;
+const GENERIC_RULE = /selon vos r[èe]gles/i;
+
+function isGenericPiece(piece) {
+  const label = String((piece && piece.label) || '').trim();
+  const rule = String((piece && piece.rule) || '');
+  return GENERIC_LABEL.test(label) || GENERIC_RULE.test(rule);
+}
 
 function userPrompt(piece, templateName) {
   const today = new Date().toISOString().slice(0, 10);
-  return [
+  const lines = [
     `Date du jour : ${today}.`,
     `Dossier : « ${templateName} ».`,
     `Pièce attendue : « ${piece.label} ».`,
-    `Règle de validité : ${piece.rule}.`,
-    `Analyse le document ci-joint et renvoie le JSON.`
-  ].join('\n');
+    `Règle de validité : ${piece.rule}.`
+  ];
+  if (isGenericPiece(piece)) {
+    lines.push("Cette pièce n'impose aucune nature précise : n'évalue pas la conformité du type. " +
+      "Mets type_conforme à true dès que l'image montre un document, même si sa nature ne peut pas être déterminée. " +
+      "Ne pénalise pas l'absence de date.");
+  }
+  lines.push('Analyse le document ci-joint et renvoie le JSON.');
+  return lines.join('\n');
 }
 
 function parseJson(text) {

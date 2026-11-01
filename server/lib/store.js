@@ -498,6 +498,13 @@ async function listLeads(limit = 100) {
   return rows;
 }
 
+async function setPassword(cabinetId, hash) {
+  const { rows } = await pool.query(
+    'update aura.cabinets set password_hash=$1 where id=$2 returning id', [hash, cabinetId]
+  );
+  return rows[0] || null;
+}
+
 async function healthy() {
   const { rows } = await pool.query('select 1 as ok');
   return rows[0].ok === 1;
@@ -509,5 +516,5 @@ module.exports = {
   mapClient, listClients, getClient, ensureClient,
   listDossiers, countDossiers, getDossier, getDossierById, getByToken, insertDossier,
   updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy, sealDossier,
-  addLead, listLeads
+  addLead, listLeads, setPassword
 };
