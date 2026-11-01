@@ -65,6 +65,7 @@
   }
 
   function showLogin() {
+    var b = $('#bootView'); if (b) b.hidden = true;
     $('#loginView').hidden = false;
     $('#dashView').hidden = true;
     $('#logoutBtn').hidden = true;
@@ -72,6 +73,7 @@
   }
 
   function showDash() {
+    var b = $('#bootView'); if (b) b.hidden = true;
     $('#loginView').hidden = true;
     $('#dashView').hidden = false;
     $('#logoutBtn').hidden = false;
