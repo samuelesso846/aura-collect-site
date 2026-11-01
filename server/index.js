@@ -818,7 +818,16 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
 
 /* ---------- pages ---------- */
 app.get('/p/:token', (req, res) => res.sendFile(path.join(ROOT, 'p.html')));
-app.get('/app', (req, res) => res.sendFile(path.join(ROOT, 'app.html')));
+/* « Se connecter » doit toujours montrer le formulaire, y compris lorsqu'une
+   session est déjà ouverte — sinon on entre dans l'espace du compte précédent
+   sans l'avoir demandé. La session est fermée ici, côté serveur, pour que le
+   comportement ne dépende pas du script chargé ni d'un cache navigateur. */
+app.get('/app', (req, res) => {
+  if (req.query.login === '1') {
+    res.clearCookie('aura_session', { path: '/', httpOnly: true, sameSite: 'lax' });
+  }
+  res.sendFile(path.join(ROOT, 'app.html'));
+});
 
 app.use(express.static(ROOT, {
   extensions: ['html'],
