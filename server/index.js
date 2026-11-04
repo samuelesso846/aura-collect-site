@@ -954,7 +954,7 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
     dossier.cabinetId = req.cabinetId;
     await store.insertDossier(dossier);
     const base = baseUrl(req);
-    const entry = await mail.sendMagicLink(dossier, base);
+    const entry = await mail.sendMagicLink(dossier, base, cabinet.name);
 
     res.status(201).json({
       dossier: cabinetDossier(dossier, base),
@@ -969,7 +969,8 @@ app.post('/api/dossiers/:id/remind', requireAuth, async (req, res, next) => {
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
     const missing = dossier.pieces.filter((p) => !['ok', 'review', 'valide'].includes(p.status)).length;
     if (!missing) return res.status(400).json({ error: 'Le dossier est déjà complet.' });
-    const entry = await mail.sendReminder(dossier, missing, baseUrl(req));
+    const cabinet = await billing.findById(req.cabinetId);
+    const entry = await mail.sendReminder(dossier, missing, baseUrl(req), cabinet ? cabinet.name : '');
     res.json({ ok: true, mail: { mode: entry.mode, status: entry.status }, missing });
   } catch (err) { next(err); }
 });

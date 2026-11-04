@@ -33,12 +33,13 @@ async function sendSmtp({ to, subject, text }) {
     requireTLS: SMTP_PORT !== 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS }
   });
-  const info = await transport.sendMail({
-    from: FROM.indexOf('@') === -1 || FROM.indexOf('<') === -1 ? `Aura Collect <${SMTP_USER}>` : FROM,
-    to,
-    subject,
-    text
-  });
+  /* Gmail n'autorise l'envoi que depuis le compte authentifié (ou une adresse
+     qu'il a validée). Une signature du type bonjour@auracollect.fr serait
+     refusée : on repart de SMTP_USER, en gardant le nom affiché. */
+  const nom = (FROM.match(/^([^<]*?)\s*</) || [])[1] || 'Aura Collect';
+  const from = FROM.indexOf(SMTP_USER) !== -1 ? FROM : `${nom.trim()} <${SMTP_USER}>`;
+
+  const info = await transport.sendMail({ from, to, subject, text });
   return info && info.messageId ? String(info.messageId) : '';
 }
 
@@ -93,11 +94,14 @@ function portalLink(token, base) {
   return String(base || BASE).replace(/\/$/, '') + '/p/' + token;
 }
 
-async function sendMagicLink(dossier, base) {
+async function sendMagicLink(dossier, base, nomCabinet) {
   const link = portalLink(dossier.token, base);
+  /* Le nom vient du cabinet qui envoie, pas d'une variable globale : deux
+     cabinets ne doivent jamais signer leurs liens du même nom. */
+  const signature = nomCabinet || process.env.CABINET_NAME || 'votre cabinet';
   return send({
     to: dossier.email,
-    subject: 'Vos documents à déposer — ' + (process.env.CABINET_NAME || 'votre cabinet'),
+    subject: 'Vos documents à déposer — ' + signature,
     text: [
       'Bonjour ' + dossier.client.split(' ')[0] + ',',
       '',
@@ -115,7 +119,7 @@ async function sendMagicLink(dossier, base) {
   });
 }
 
-async function sendReminder(dossier, missing, base) {
+async function sendReminder(dossier, missing, base, nomCabinet) {
   return send({
     to: dossier.email,
     subject: 'Il manque ' + missing + ' document' + (missing > 1 ? 's' : '') + ' à votre dossier',
