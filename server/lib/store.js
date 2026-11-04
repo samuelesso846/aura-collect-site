@@ -310,6 +310,7 @@ function mapDossier(row, pieces) {
     token: row.token,
     client: row.client,
     clientId: row.client_id || null,
+    cabinetId: row.cabinet_id || null,
     clientName: row.client_name || row.client,
     clientPhone: row.client_phone || '',
     email: row.email,
@@ -405,6 +406,20 @@ async function getDossierById(id) {
   if (!rows.length) return null;
   const pieces = await pool.query('select * from aura.pieces where dossier_id = $1 order by position', [id]);
   return mapDossier(rows[0], pieces.rows);
+}
+
+/* Vrai si une notification commençant par `prefixe` a déjà été écrite pour ce
+   dossier dans la fenêtre donnée. Sert à grouper les alertes : cinq pièces
+   déposées en dix minutes ne doivent pas produire cinq emails. */
+async function recentNotice(dossierId, prefixe, minutes) {
+  const { rows } = await pool.query(
+    `select 1 from aura.outbox
+      where dossier_id = $1 and subject like $2
+        and created_at > now() - ($3 || ' minutes')::interval
+      limit 1`,
+    [dossierId, prefixe + '%', String(Number(minutes) || 30)]
+  );
+  return rows.length > 0;
 }
 
 /* ---------- écriture ---------- */
@@ -595,7 +610,7 @@ async function healthy() {
 }
 
 module.exports = {
-  pool, TEMPLATES, templateById, normalisePieces, motifDeRejet, peutEtreForce,
+  pool, TEMPLATES, templateById, normalisePieces, motifDeRejet, peutEtreForce, recentNotice,
   token, slug, statusOf, progressOf, createDossier,
   mapClient, listClients, getClient, ensureClient,
   listDossiers, countDossiers, getDossier, getDossierById, getByToken, insertDossier,

@@ -278,6 +278,68 @@ function publicDossier(d) {
 
 const LINK_DAYS = Number(process.env.LINK_TTL_DAYS || 30);
 
+/* ---------- prévenir le cabinet ----------
+   Sans cela, le cabinet doit ouvrir son espace pour savoir qu'une pièce est
+   arrivée. Les dépôts d'un même dossier sont groupés sur trente minutes ; la
+   fin du dossier, elle, part toujours immédiatement. */
+const NOTICE_WINDOW_MIN = 30;
+
+function etatLisible(piece) {
+  if (piece.status === 'ok') return 'conforme';
+  if (piece.status === 'refuse' || piece.status === 'rejete') return 'refusée par la vérification';
+  return 'à vérifier par vous';
+}
+
+async function notifyCabinet(dossier, base) {
+  try {
+    if (!dossier || !dossier.cabinetId) return;
+    const cabinet = await billing.findById(dossier.cabinetId);
+    if (!cabinet || !cabinet.email) return;
+
+    const bloquantes = dossier.pieces.filter((p) => !['ok', 'valide'].includes(p.status));
+    const complet = bloquantes.length === 0;
+    const prefixe = complet ? 'Dossier complet' : 'Nouvelle pièce';
+
+    if (!complet && await store.recentNotice(dossier.id, prefixe, NOTICE_WINDOW_MIN)) return;
+
+    const app = (base || process.env.PUBLIC_BASE_URL || DEFAULT_BASE).replace(/\/$/, '') + '/app';
+    const derniere = dossier.pieces.filter((p) => p.filename).pop();
+
+    const lignes = complet
+      ? [
+        'Bonjour,',
+        '',
+        'Le dossier de ' + dossier.client + ' est complet : toutes les pièces demandées sont arrivées.',
+        'Vous pouvez le contrôler puis le sceller depuis votre espace :',
+        '',
+        app,
+        '',
+        'Le client n\'a plus rien à déposer : le lien se ferme dès que vous scellez.'
+      ]
+      : [
+        'Bonjour,',
+        '',
+        (derniere ? 'Une pièce vient d\'arriver pour ' + dossier.client + ' : ' + derniere.label + '.'
+          : 'Une pièce vient d\'arriver pour ' + dossier.client + '.'),
+        'Verdict automatique : ' + (derniere ? etatLisible(derniere) : 'à vérifier par vous') + '.',
+        '',
+        'Il reste ' + bloquantes.length + ' pièce' + (bloquantes.length > 1 ? 's' : '') + ' à recevoir.',
+        '',
+        app
+      ];
+
+    await mail.send({
+      to: cabinet.email,
+      subject: (complet ? 'Dossier complet' : 'Nouvelle pièce') + ' — ' + dossier.client,
+      text: lignes.join('\n'),
+      dossierId: dossier.id
+    });
+  } catch (err) {
+    /* Une alerte ratée ne doit jamais faire échouer un dépôt réussi. */
+    console.error('[notify] cabinet non prévenu :', err.message);
+  }
+}
+
 function linkExpired(dossier) {
   return Date.now() - new Date(dossier.createdAt).getTime() > LINK_DAYS * 864e5;
 }
@@ -1054,6 +1116,7 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
     });
 
     const fresh = await store.getDossierById(dossier.id) || dossier;
+    notifyCabinet(fresh, baseUrl(req));
     res.json({
       piece: { key: piece.key, status: verdict.status, reason: verdict.reason, dateDocument: verdict.dateDocument },
       dossier: publicDossier(fresh)
