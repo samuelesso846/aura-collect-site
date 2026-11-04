@@ -42,17 +42,65 @@ async function findByEmail(email) {
   return rows[0] || null;
 }
 
-/* Compte créé par un cabinet lui-même : aucun accès tant que le paiement n'est pas confirmé. */
+/* Compte créé par un cabinet lui-même : aucun accès tant que le paiement n'est pas confirmé.
+
+   Le contrôle « cette adresse existe-t-elle ? » puis l'INSERT ne suffisent pas :
+   entre les deux, une seconde inscription simultanée passe aussi. On sérialise
+   donc par adresse avec un verrou consultatif, valable jusqu'au COMMIT. Deux
+   inscriptions lancées en même temps sur le même email créent un seul espace,
+   la seconde reçoit « compte déjà existant ». L'index unique
+   `cabinets_email_unique` reste le filet de sécurité en base. */
 async function createAccount({ name, email, passwordHash, plan }) {
   const slug = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'cabinet';
-  const rows = await q(
-    `insert into aura.cabinets (name, slug, email, plan, plan_status, password_hash, trial_ends_at)
-     values ($1, $2, $3, $4, 'trialing', $5, now() + ($6 || ' days')::interval)
-     returning *`,
-    [name, slug + '-' + Math.random().toString(36).slice(2, 7), email, plan, passwordHash, String(TRIAL_DAYS)]
-  );
-  return rows[0];
+
+  /* Erreur métier : l'adresse est déjà prise. Elle porte le nom de la contrainte
+     pour être reconnue comme un doublon, et non comme une panne serveur. */
+  const emailDejaPris = () => {
+    const err = new Error('Un compte existe déjà avec cette adresse.');
+    err.code = 'EMAIL_EXISTE';
+    err.constraint = 'cabinets_email_unique';
+    return err;
+  };
+
+  const client = await store.pool.connect();
+  try {
+    await client.query('begin');
+    await client.query('select pg_advisory_xact_lock(hashtext(lower($1)))', [String(email || '')]);
+
+    const deja = await client.query(
+      'select 1 from aura.cabinets where lower(email) = lower($1) limit 1', [email]
+    );
+    if (deja.rowCount) throw emailDejaPris();
+
+    /* `slug` porte elle aussi une contrainte unique. Le suffixe aléatoire rend
+       la collision improbable, mais pas impossible : on retente avec un autre
+       suffixe plutôt que de renvoyer une erreur technique. */
+    for (let essai = 0; essai < 3; essai += 1) {
+      try {
+        const { rows } = await client.query(
+          `insert into aura.cabinets (name, slug, email, plan, plan_status, password_hash, trial_ends_at)
+           values ($1, $2, $3, $4, 'trialing', $5, now() + ($6 || ' days')::interval)
+           returning *`,
+          [name, slug + '-' + Math.random().toString(36).slice(2, 7), email, plan, passwordHash, String(TRIAL_DAYS)]
+        );
+        await client.query('commit');
+        return rows[0];
+      } catch (err) {
+        const surSlug = err.code === '23505' && String(err.constraint || '').indexOf('slug') !== -1;
+        const surEmail = err.code === '23505' && String(err.constraint || '').indexOf('email') !== -1;
+        if (surEmail) { await client.query('rollback'); throw emailDejaPris(); }
+        if (!surSlug || essai === 2) throw err;
+        /* collision de slug : on relance l'insertion dans la même transaction */
+      }
+    }
+    throw new Error('Création du compte impossible.');
+  } catch (err) {
+    if (err.code !== 'EMAIL_EXISTE') await client.query('rollback').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /* Réparation : un cabinet créé avant la mise en place des essais n'a aucune

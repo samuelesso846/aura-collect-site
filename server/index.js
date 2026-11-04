@@ -682,6 +682,13 @@ app.post('/api/signup', async (req, res, next) => {
     res.json({ ok: true, trialDays: billing.TRIAL_DAYS, redirect: '/app?bienvenue=1' });
   } catch (err) {
     console.error('[signup]', err.message);
+    /* L'index unique `cabinets_email_unique` tranche en dernier ressort. Sans ce
+       test, deux inscriptions simultanées avec la même adresse produiraient une
+       « erreur technique » alors que la bonne réponse est « compte déjà créé ». */
+    if (err.code === 'EMAIL_EXISTE' ||
+        (err.code === '23505' && /email/i.test(String(err.constraint || '') + ' ' + String(err.detail || '')))) {
+      return fail('existe', 'Un compte existe déjà avec cette adresse. Connectez-vous depuis l’espace cabinet.', 409);
+    }
     if (isForm) return res.redirect(303, `/commander.html?erreur=technique&plan=${encodeURIComponent(planWanted)}`);
     next(err);
   }
