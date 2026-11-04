@@ -26,21 +26,42 @@ function mode() {
 
 async function sendSmtp({ to, subject, text }) {
   const nodemailer = require('nodemailer');
-  const transport = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    requireTLS: SMTP_PORT !== 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS }
-  });
+
+  /* Deux ports essayés dans l'ordre, IPv4 forcé : sur un hébergeur, le port 587
+     peut être filtré sans réponse (on attend alors jusqu'au délai d'expiration),
+     et l'IPv6 n'est pas toujours routé. Le 465 sert de repli. */
+  const essais = SMTP_PORT === 465
+    ? [{ port: 465, secure: true }, { port: 587, secure: false }]
+    : [{ port: SMTP_PORT, secure: SMTP_PORT === 465 }, { port: 465, secure: true }];
+
   /* Gmail n'autorise l'envoi que depuis le compte authentifié (ou une adresse
      qu'il a validée). Une signature du type bonjour@auracollect.fr serait
      refusée : on repart de SMTP_USER, en gardant le nom affiché. */
   const nom = (FROM.match(/^([^<]*?)\s*</) || [])[1] || 'Aura Collect';
   const from = FROM.indexOf(SMTP_USER) !== -1 ? FROM : `${nom.trim()} <${SMTP_USER}>`;
 
-  const info = await transport.sendMail({ from, to, subject, text });
-  return info && info.messageId ? String(info.messageId) : '';
+  let derniere;
+  for (const essai of essais) {
+    try {
+      const transport = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: essai.port,
+        secure: essai.secure,
+        requireTLS: !essai.secure,
+        family: 4,
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 30000,
+        auth: { user: SMTP_USER, pass: SMTP_PASS }
+      });
+      const info = await transport.sendMail({ from, to, subject, text });
+      return info && info.messageId ? String(info.messageId) : '';
+    } catch (err) {
+      derniere = err;
+      console.error(`[mail] SMTP port ${essai.port} : ${err.code || ''} ${err.message}`);
+    }
+  }
+  throw derniere;
 }
 
 async function send({ to, subject, text, dossierId }) {
