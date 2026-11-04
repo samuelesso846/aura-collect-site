@@ -89,14 +89,17 @@ async function createAccount({ name, email, passwordHash, plan }) {
       } catch (err) {
         const surSlug = err.code === '23505' && String(err.constraint || '').indexOf('slug') !== -1;
         const surEmail = err.code === '23505' && String(err.constraint || '').indexOf('email') !== -1;
-        if (surEmail) { await client.query('rollback'); throw emailDejaPris(); }
+        if (surEmail) throw emailDejaPris();
         if (!surSlug || essai === 2) throw err;
         /* collision de slug : on relance l'insertion dans la même transaction */
       }
     }
     throw new Error('Création du compte impossible.');
   } catch (err) {
-    if (err.code !== 'EMAIL_EXISTE') await client.query('rollback').catch(() => {});
+    /* Toujours annuler, y compris sur un doublon : sans ce rollback, la
+       transaction repart au pool encore ouverte et le verrou consultatif reste
+       tenu, ce qui bloque les inscriptions suivantes sur cette connexion. */
+    await client.query('rollback').catch(() => {});
     throw err;
   } finally {
     client.release();
