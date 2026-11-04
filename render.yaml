@@ -21,5 +21,13 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: PUBLIC_BASE_URL
+        value: https://aura-collect.onrender.com
       - key: GROQ_MODEL
         value: qwen/qwen3.8-27b

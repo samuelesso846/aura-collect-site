@@ -159,6 +159,34 @@ function verifyPassword(password, stored) {
   return crypto.timingSafeEqual(expected, calculated);
 }
 
+/* ---------- jeton de réinitialisation ----------
+   Signé, daté, et lié à l'empreinte du mot de passe courant : il cesse d'être
+   valable dès que le mot de passe change, sans table ni nettoyage à prévoir. */
+const RESET_TTL = 60 * 60 * 1000;
+
+function resetSignature(email, expires, empreinte) {
+  return crypto.createHmac('sha256', SECRET)
+    .update(`${email}|${expires}|${empreinte}`)
+    .digest('base64url');
+}
+
+function issueResetToken(cabinet) {
+  const expires = Date.now() + RESET_TTL;
+  const empreinte = String(cabinet.password_hash || '').split('$').pop().slice(0, 16);
+  const charge = Buffer.from(JSON.stringify({ e: cabinet.email, x: expires })).toString('base64url');
+  return `${charge}.${resetSignature(cabinet.email, expires, empreinte)}`;
+}
+
+function readResetToken(token) {
+  const [charge, signature] = String(token || '').split('.');
+  if (!charge || !signature) return null;
+  let contenu;
+  try { contenu = JSON.parse(Buffer.from(charge, 'base64url').toString('utf8')); } catch (_) { return null; }
+  if (!contenu || !contenu.e || !contenu.x) return null;
+  if (Date.now() > Number(contenu.x)) return null;
+  return contenu;
+}
+
 function setSessionCookie(res, value) {
   res.setHeader('Set-Cookie',
     `aura_session=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200` +
@@ -523,6 +551,38 @@ app.post('/api/password', requireAuth, async (req, res) => {
   }
 });
 
+/* Consommation du lien de réinitialisation. */
+app.post('/api/password/reset', async (req, res) => {
+  try {
+    const { token, next } = req.body || {};
+    const contenu = readResetToken(token);
+    if (!contenu) {
+      return res.status(400).json({ ok: false, error: 'Lien invalide ou expiré. Demandez-en un nouveau.' });
+    }
+    if (String(next || '').length < 8) {
+      return res.status(400).json({ ok: false, error: 'Le nouveau mot de passe doit faire au moins 8 caractères.' });
+    }
+    const cabinet = await billing.findByEmail(String(contenu.e || '').toLowerCase());
+    if (!cabinet) {
+      return res.status(400).json({ ok: false, error: 'Lien invalide ou expiré. Demandez-en un nouveau.' });
+    }
+    const empreinte = String(cabinet.password_hash || '').split('$').pop().slice(0, 16);
+    const attendu = resetSignature(cabinet.email, Number(contenu.x), empreinte);
+    const recu = String(token).split('.')[1] || '';
+    const a = Buffer.from(attendu);
+    const b = Buffer.from(recu);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return res.status(400).json({ ok: false, error: 'Lien invalide ou expiré. Demandez-en un nouveau.' });
+    }
+
+    await store.setPassword(cabinet.id, hashPassword(String(next)));
+    return res.json({ ok: true, redirect: '/app?login=1&mdp=change' });
+  } catch (err) {
+    console.error('[password] réinitialisation :', err.message);
+    return res.status(500).json({ ok: false, error: 'Réinitialisation impossible pour le moment.' });
+  }
+});
+
 /* Demande de réinitialisation, sans compte ni session. Enregistrée comme les
    demandes de contact : sans envoi d'email configuré, c'est la seule façon de
    ne pas perdre la demande. La réponse est toujours identique, pour ne pas
@@ -544,6 +604,16 @@ app.post('/api/password/reset-request', async (req, res) => {
       userAgent: String(req.headers['user-agent'] || '').slice(0, 300),
       ip: req.ip || ''
     });
+
+    /* Le lien n'est envoyé que si le compte existe. La réponse, elle, est
+       toujours identique : elle ne doit pas révéler quelles adresses ont un
+       compte. */
+    const cabinet = await billing.findByEmail(email);
+    if (cabinet) {
+      const token = issueResetToken(cabinet);
+      const lien = `${baseUrl(req)}/reset?token=${encodeURIComponent(token)}`;
+      await mail.sendPasswordReset(cabinet, lien);
+    }
     return res.json({ ok: true });
   } catch (err) {
     console.error('[password] demande de réinitialisation :', err.message);
@@ -1026,6 +1096,12 @@ app.use((err, req, res, next) => {
   console.error('[aura]', err && err.stack ? err.stack : err);
   if (err && err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({ error: `Fichier trop volumineux (${MAX_MB} Mo maximum).` });
+  }
+  /* Le refus de format vient du filtre de multer, donc avant le gestionnaire de
+     route : sans ce test, un .txt renvoyait « Erreur serveur » (500) au lieu
+     d'expliquer ce qui est accepté. */
+  if (err && err.message === 'FORMAT') {
+    return res.status(415).json({ error: 'Format non accepté : JPEG, PNG, WEBP ou PDF.' });
   }
   res.status(500).json({ error: 'Erreur serveur.' });
 });

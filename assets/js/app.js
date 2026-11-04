@@ -593,7 +593,7 @@
           body: JSON.stringify({ email: email })
         });
         var d = await r.json();
-        if (r.ok && d.ok) say('Demande enregistrée. Nous vous recontactons pour rouvrir l\'accès.', true);
+        if (r.ok && d.ok) say('Si un compte existe avec cette adresse, un lien de réinitialisation vient de partir. Regardez aussi les indésirables.', true);
         else say(d.error || 'Demande impossible.', false);
       } catch (e) {
         say('Connexion interrompue. Réessayez.', false);

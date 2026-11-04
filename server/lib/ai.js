@@ -215,11 +215,35 @@ async function shrink(buffer) {
   }
 }
 
+/* Deux lecteurs, dans cet ordre : pdf-parse est rapide mais échoue sur les PDF
+   récents (« bad XRef entry »), que pdfjs avale sans broncher. Sans ce repli,
+   toute une famille de PDF basculait en contrôle manuel alors que le texte
+   était parfaitement lisible. */
 async function readPdfText(buffer) {
   try {
     const pdfParse = require('pdf-parse');
     const data = await pdfParse(buffer);
-    return (data.text || '').replace(/\s+/g, ' ').trim();
+    const texte = (data.text || '').replace(/\s+/g, ' ').trim();
+    if (texte.length >= 60) return texte;
+  } catch (err) {
+    console.warn('[ai] pdf-parse a échoué, repli sur pdfjs :', err.message);
+  }
+
+  try {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const doc = await pdfjs.getDocument({
+      data: new Uint8Array(buffer),
+      useSystemFonts: true,
+      isEvalSupported: false
+    }).promise;
+    let texte = '';
+    const pages = Math.min(doc.numPages, 12);
+    for (let i = 1; i <= pages; i += 1) {
+      const page = await doc.getPage(i);
+      const contenu = await page.getTextContent();
+      texte += contenu.items.map((item) => item.str).join(' ') + '\n';
+    }
+    return texte.replace(/\s+/g, ' ').trim();
   } catch (err) {
     console.error('[ai] extraction PDF impossible :', err.message);
     return '';

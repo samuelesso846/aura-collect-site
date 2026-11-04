@@ -8,8 +8,38 @@ const FROM = process.env.MAIL_FROM || 'Aura Collect <bonjour@auracollect.fr>';
 const KEY = process.env.RESEND_API_KEY || '';
 const BASE = process.env.PUBLIC_BASE_URL || 'http://localhost:' + (process.env.PORT || 8788);
 
+/* Deux transports réels, au choix :
+   - Resend (RESEND_API_KEY), propre et journalisé, mais impose un domaine vérifié ;
+   - SMTP (SMTP_USER / SMTP_PASS, mot de passe d'application Google), qui part
+     immédiatement depuis une adresse existante, sans domaine à configurer.
+   Sans l'un des deux, l'email est journalisé dans l'outbox — rien ne part. */
+const SMTP_HOST = process.env.SMTP_HOST || (process.env.SMTP_USER ? 'smtp.gmail.com' : '');
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+
 function mode() {
-  return KEY ? 'resend' : 'outbox';
+  if (KEY) return 'resend';
+  if (SMTP_HOST && SMTP_USER && SMTP_PASS) return 'smtp';
+  return 'outbox';
+}
+
+async function sendSmtp({ to, subject, text }) {
+  const nodemailer = require('nodemailer');
+  const transport = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    requireTLS: SMTP_PORT !== 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS }
+  });
+  const info = await transport.sendMail({
+    from: FROM.indexOf('@') === -1 || FROM.indexOf('<') === -1 ? `Aura Collect <${SMTP_USER}>` : FROM,
+    to,
+    subject,
+    text
+  });
+  return info && info.messageId ? String(info.messageId) : '';
 }
 
 async function send({ to, subject, text, dossierId }) {
@@ -38,6 +68,15 @@ async function send({ to, subject, text, dossierId }) {
       entry.providerId = (() => { try { return JSON.parse(body).id || ''; } catch (_) { return ''; } })();
     } catch (err) {
       console.error('[mail] envoi échoué :', err.message);
+      entry.status = 'failed';
+      entry.error = err.message;
+    }
+  } else if (mode() === 'smtp') {
+    try {
+      entry.providerId = await sendSmtp({ to, subject, text });
+      entry.status = 'sent';
+    } catch (err) {
+      console.error('[mail] SMTP échoué :', err.message);
       entry.status = 'failed';
       entry.error = err.message;
     }
@@ -94,4 +133,22 @@ async function sendReminder(dossier, missing, base) {
   });
 }
 
-module.exports = { send, sendMagicLink, sendReminder, portalLink, mode };
+function sendPasswordReset(cabinet, link) {
+  return send({
+    to: cabinet.email,
+    subject: 'Réinitialisation de votre mot de passe',
+    text: [
+      'Bonjour,',
+      '',
+      'Vous avez demandé à réinitialiser le mot de passe de votre espace ' + (cabinet.name || 'Aura Collect') + '.',
+      'Ce lien est valable une heure et ne sert qu\'une fois :',
+      '',
+      link,
+      '',
+      'Si vous n\'êtes pas à l\'origine de cette demande, ignorez ce message :',
+      'votre mot de passe actuel reste valable.'
+    ].join('\n')
+  });
+}
+
+module.exports = { send, sendMagicLink, sendReminder, sendPasswordReset, portalLink, mode };
