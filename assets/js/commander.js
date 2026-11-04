@@ -21,15 +21,28 @@ const ERREURS = {
   technique: 'Une erreur est survenue de notre côté. Réessayez dans un instant.'
 };
 
+/* Prix mensuel affiché à côté de chaque offre. Le tarif est déjà renvoyé par
+   /api/billing/plans ; il manquait simplement à l'affichage. */
+function formatPrix(value, currency) {
+  const n = Number(value || 0);
+  if (!n) return '';
+  const net = String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return net + ' ' + (currency === 'XOF' ? 'FCFA' : currency || '') + '/mois';
+}
+
 function renderPlans() {
   const box = $('planChoice');
   box.innerHTML = '';
   for (const plan of PLANS) {
     const label = document.createElement('label');
     label.className = 'ord__opt' + (plan.id === SELECTED ? ' is-on' : '');
+    const userTxt = plan.limits.users
+      ? plan.limits.users + ' utilisateur' + (plan.limits.users > 1 ? 's' : '')
+      : 'utilisateurs illimités';
     label.innerHTML = `
       <input type="radio" name="plan" value="${plan.id}" ${plan.id === SELECTED ? 'checked' : ''}>
-      <span><b>${plan.label}</b><span>${plan.limits.dossiers} dossiers · ${plan.limits.users ? plan.limits.users + ' utilisateur' + (plan.limits.users > 1 ? 's' : '') : 'utilisateurs illimités'}</span></span>`;
+      <span><b>${plan.label}</b><span>${plan.limits.dossiers} dossiers · ${userTxt}</span></span>
+      <span class="prix">${formatPrix(plan.price, plan.currency)}</span>`;
     label.addEventListener('click', () => {
       SELECTED = plan.id;
       for (const el of box.querySelectorAll('.ord__opt')) el.classList.remove('is-on');

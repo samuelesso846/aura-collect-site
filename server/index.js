@@ -344,6 +344,20 @@ function linkExpired(dossier) {
   return Date.now() - new Date(dossier.createdAt).getTime() > LINK_DAYS * 864e5;
 }
 
+/* Nom du cabinet propriétaire d'une donnée. Depuis le passage au multi-cabinets,
+   `CABINET` n'est plus qu'un repli historique : l'afficher tel quel faisait voir
+   « Cabinet Lemaire & Associés » à n'importe quel nouveau cabinet, sur son
+   tableau de bord comme sur la page de dépôt de ses clients. */
+async function cabinetNameOf(cabinetId) {
+  if (!cabinetId) return CABINET;
+  try {
+    const cabinet = await billing.findById(cabinetId);
+    return (cabinet && cabinet.name) || CABINET;
+  } catch (err) {
+    return CABINET;
+  }
+}
+
 function baseUrl(req) {
   if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, '');
   const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
@@ -915,7 +929,7 @@ app.get('/api/dossiers', requireAuth, async (req, res, next) => {
   try {
     const base = baseUrl(req);
     const dossiers = (await store.listDossiers(req.cabinetId)).map((d) => cabinetDossier(d, base));
-    res.json({ dossiers, cabinet: CABINET });
+    res.json({ dossiers, cabinet: await cabinetNameOf(req.cabinetId) });
   } catch (err) { next(err); }
 });
 
@@ -997,7 +1011,7 @@ app.post('/api/dossiers/:id/seal', requireAuth, async (req, res, next) => {
       });
     }
 
-    const manifest = await seal.buildManifest(dossier, CABINET);
+    const manifest = await seal.buildManifest(dossier, await cabinetNameOf(dossier.cabinetId));
     const hash = seal.hashManifest(manifest);
     await store.sealDossier(dossier.id, hash, manifest.sealedAt, manifest);
     res.json({ hash, sealedAt: manifest.sealedAt });
@@ -1023,7 +1037,11 @@ app.get('/api/dossiers/:id/integrity', requireAuth, async (req, res, next) => {
     if (!dossier || !dossier.sealHash || !dossier.sealManifest) {
       return res.status(404).json({ error: 'Dossier non scellé.' });
     }
-    const manifest = await seal.buildManifest(dossier, CABINET, dossier.sealManifest.sealedAt);
+    /* Le nom du cabinet fait partie de l'empreinte : on recalcule avec celui qui
+       a été scellé, et non avec le nom actuel. Sans cela, renommer un cabinet
+       ferait apparaître une fausse altération sur tous ses dossiers scellés. */
+    const sealedCabinet = dossier.sealManifest.cabinet || await cabinetNameOf(dossier.cabinetId);
+    const manifest = await seal.buildManifest(dossier, sealedCabinet, dossier.sealManifest.sealedAt);
     const computed = seal.hashManifest(manifest);
     const ok = computed === dossier.sealHash;
     const changed = [];
@@ -1033,7 +1051,11 @@ app.get('/api/dossiers/:id/integrity', requireAuth, async (req, res, next) => {
         if (p.sha256 !== old.sha256) changed.push(p.label);
       });
     }
-    res.json({ ok, stored: dossier.sealHash, computed, sealedAt: dossier.sealedAt, changed });
+    /* `manifestIntact` : le manifeste archivé, pris tel quel, redonne-t-il
+       l'empreinte publiée ? C'est la vérification qu'un tiers peut refaire
+       seul, sans nos fichiers. `ok` reste le contrôle fort (octets relus). */
+    const manifestIntact = seal.hashManifest(dossier.sealManifest) === dossier.sealHash;
+    res.json({ ok, manifestIntact, stored: dossier.sealHash, computed, sealedAt: dossier.sealedAt, changed });
   } catch (err) { next(err); }
 });
 
@@ -1057,7 +1079,7 @@ app.get('/api/portal/:token', async (req, res, next) => {
     if (linkExpired(dossier)) {
       return res.status(410).json({ error: `Ce lien a expiré après ${LINK_DAYS} jours. Demandez-en un nouveau à votre cabinet.` });
     }
-    res.json({ cabinet: CABINET, dossier: publicDossier(dossier), ai: ai.configured() });
+    res.json({ cabinet: await cabinetNameOf(dossier.cabinetId), dossier: publicDossier(dossier), ai: ai.configured() });
   } catch (err) { next(err); }
 });
 

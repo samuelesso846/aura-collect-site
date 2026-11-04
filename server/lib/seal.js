@@ -24,6 +24,17 @@ function hashManifest(manifest) {
   return sha256(canonical(manifest));
 }
 
+/* Les dates arrivent de Postgres sous forme d'objets Date. `canonical` ne sait
+   pas les sérialiser : il les réduisait à « {} ». L'empreinte était donc calculée
+   sur des dates vides, et le manifeste relu depuis la base (où les dates sont des
+   chaînes ISO) ne redonnait jamais la même empreinte. On fixe la forme ici, une
+   fois pour toutes : tout ce qui entre dans le manifeste est déjà une chaîne. */
+function toIso(value) {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  return isNaN(d.getTime()) ? String(value) : d.toISOString();
+}
+
 async function buildManifest(dossier, cabinet, sealedAt) {
   const pieces = [];
   for (const p of dossier.pieces) {
@@ -44,7 +55,7 @@ async function buildManifest(dossier, cabinet, sealedAt) {
       dateDocument: p.dateDocument || '',
       sha256: digest,
       size,
-      decidedAt: p.at || ''
+      decidedAt: toIso(p.at)
     });
   }
 
@@ -56,10 +67,10 @@ async function buildManifest(dossier, cabinet, sealedAt) {
       client: dossier.client,
       recipient: dossier.recipient || '',
       template: store.templateById(dossier.template).name,
-      createdAt: dossier.createdAt
+      createdAt: toIso(dossier.createdAt)
     },
     pieces,
-    sealedAt: sealedAt || new Date().toISOString()
+    sealedAt: toIso(sealedAt) || new Date().toISOString()
   };
 }
 

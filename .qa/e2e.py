@@ -10,9 +10,10 @@ PWD = 'MotDePasseTest2026!'
 resultats = []
 
 
-def check(nom, ok, detail=''):
-    resultats.append({'etape': nom, 'ok': bool(ok), 'detail': str(detail)[:400]})
-    print(('OK   ' if ok else 'ECHEC') + f'  {nom}  {str(detail)[:160]}')
+def check(nom, ok, detail='', attention=False):
+    resultats.append({'etape': nom, 'ok': bool(ok), 'attention': bool(attention), 'detail': str(detail)[:400]})
+    etat = 'OK   ' if ok else ('ATTENTION' if attention else 'ECHEC')
+    print(f'{etat}  {nom}  {str(detail)[:160]}')
     return ok
 
 
@@ -70,7 +71,9 @@ dos = d.get('dossier', {})
 check('5. Creation du dossier', r.status_code == 201 and dos.get('id'), f'{r.status_code} {r.text[:150]}')
 did, token = dos.get('id'), dos.get('token')
 check('5b. Lien de depot genere', bool(token), token)
-check('5c. Email au client parti', (d.get('mail') or {}).get('status') in ('sent', 'simule', 'envoye', None), d.get('mail'))
+_m = (d.get('mail') or {}).get('status')
+check('5c. Email au client', _m in ('sent', 'simule', 'envoye'), f'mode={_m}',
+      attention=(_m == 'outbox'))
 
 # 6. liste
 r = s.get(BASE + '/api/dossiers')
@@ -117,7 +120,7 @@ for key in pieces:
 
 # 13. integrite avant scellement
 r = s.get(BASE + f'/api/dossiers/{did}/integrity')
-check('13. Controle d\'integrite', r.status_code == 200, f'{r.status_code} {r.text[:140]}')
+check('13. Integrite refusee avant scellement (attendu 404)', r.status_code == 404, f'{r.status_code} {r.text[:80]}')
 
 # 14. scellement
 r = s.post(BASE + f'/api/dossiers/{did}/seal')
@@ -167,7 +170,7 @@ r = s.post(BASE + '/api/password/reset-request', json={'email': EMAIL})
 check('23. Demande de reinitialisation', r.status_code == 200, f'{r.status_code} {r.text[:120]}')
 
 # 24. changement de mot de passe
-r = s.post(BASE + '/api/password', json={'current': PWD, 'password': 'NouveauMotDePasse2026!'})
+r = s.post(BASE + '/api/password', json={'current': PWD, 'next': 'NouveauMotDePasse2026!'})
 check('24. Changement de mot de passe', r.status_code == 200, f'{r.status_code} {r.text[:120]}')
 
 # 25. paiement
@@ -194,6 +197,7 @@ except Exception as e:
 
 dt = round(time.time() - t0, 1)
 ok = sum(1 for x in resultats if x['ok'])
-print(f'\n=== {ok}/{len(resultats)} verifications OK en {dt}s ===')
+att = sum(1 for x in resultats if x.get('attention'))
+print(f'\n=== {ok}/{len(resultats)} verifications OK, {att} attention, {len(resultats)-ok-att} echecs en {dt}s ===')
 json.dump({'email': EMAIL, 'cabinet_id': cab_id, 'dossier': did, 'resultats': resultats},
           open('/tmp/e2e/rapport.json', 'w'), ensure_ascii=False, indent=1)

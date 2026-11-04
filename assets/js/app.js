@@ -524,8 +524,14 @@
     try {
       var me = await api('/api/me');
       state.me = me;
-      $('#cabinetName').textContent = me.cabinet;
-      document.title = me.cabinet + ' — Aura Collect';
+      /* Avant connexion, /api/me renvoie cabinet:null : sans ce garde-fou
+         l'onglet affichait « null — Aura Collect ». */
+      if (me.cabinet) {
+        $('#cabinetName').textContent = me.cabinet;
+        document.title = me.cabinet + ' — Aura Collect';
+      } else {
+        document.title = 'Aura Collect';
+      }
 
       var pill = $('#aiPill');
       if (me.ai && me.ai.ready) {
