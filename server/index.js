@@ -202,6 +202,25 @@ function loginFail(kind, value, max) {
 
 function loginClear(kind, value) { loginHits.delete(hitKey(kind, value)); }
 
+/* Limiteur des formulaires publics (inscription, contact, demande de mot de
+   passe). Il partage le compteur du verrou de connexion mais avec son propre
+   quota : une même adresse ne peut pas enchaîner les envois. Sans cette
+   fonction, ces trois routes échouaient avant même d'écrire en base. */
+const FORM_MAX_IP = 12;
+const FORM_WINDOW = LOGIN_WINDOW;
+
+function throttle(ip) {
+  const value = String(ip || 'unknown');
+  const rec = loginHits.get('form|' + value);
+  const now = Date.now();
+  if (rec) {
+    if (rec.until > now) return false;
+    if (now - rec.since > FORM_WINDOW) loginHits.delete('form|' + value);
+  }
+  loginFail('form', value, FORM_MAX_IP);
+  return true;
+}
+
 function tooMany(res, seconds) {
   res.setHeader('Retry-After', String(seconds));
   return res.status(429).json({
