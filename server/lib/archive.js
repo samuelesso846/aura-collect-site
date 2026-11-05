@@ -121,7 +121,8 @@ async function journalPdf(dossier, tplName, decisions) {
     y -= 26;
     page.drawText(sanitize('Journal des décisions — ' + dossier.client), { x: M, y, size: 17, font: bold, color: ink });
     y -= 18;
-    page.drawText(sanitize(tplName + '  ·  ' + decisions.length + ' événements'), { x: M, y, size: 9.5, font, color: muted });
+    const compte = decisions.length + ' événement' + (decisions.length > 1 ? 's' : '');
+    page.drawText(sanitize(tplName + '  ·  ' + compte), { x: M, y, size: 9.5, font, color: muted });
     y -= 20;
   };
   head();
@@ -145,7 +146,9 @@ async function journalPdf(dossier, tplName, decisions) {
     if (y < M + 90) { page = doc.addPage([595, 842]); y = height - M; }
 
     const quand = new Date(d.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
-    const acteur = (ACTEURS[d.actor_kind] || d.actor_kind) + (d.actor_email ? ' — ' + d.actor_email : '');
+    let acteur = (ACTEURS[d.actor_kind] || d.actor_kind);
+    if (d.actor_name && d.actor_kind === 'cabinet') acteur += ' — ' + d.actor_name;
+    if (d.actor_email) acteur += (acteur.includes(' — ') ? ' (' + d.actor_email + ')' : ' — ' + d.actor_email);
     const titre = (LIBELLES[d.action] || d.action) + (d.piece_label ? ' · ' + d.piece_label : '');
 
     page.drawText(sanitize(quand), { x: M, y, size: 8.5, font, color: muted });
@@ -173,7 +176,7 @@ async function journalPdf(dossier, tplName, decisions) {
     y -= 14;
   }
 
-  return doc.save();
+  return Buffer.from(await doc.save({ useObjectStreams: false }));
 }
 
 async function buildZip(res, dossier, tplName, decisions) {

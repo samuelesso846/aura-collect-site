@@ -363,6 +363,15 @@ async function cabinetNameOf(cabinetId) {
    dès que les utilisateurs multiples arrivent, c'est la personne connectée. */
 async function actorOf(req) {
   if (req.actor) return req.actor;
+  /* La personne connectée d'abord : c'est son nom qui doit apparaître au
+     journal, pas celui du cabinet. Repli sur le cabinet pour les sessions
+     ouvertes avant l'arrivée des comptes multiples. */
+  if (req.userId) {
+    try {
+      const u = await store.getUser(req.userId, req.cabinetId);
+      if (u) return { kind: 'cabinet', email: u.email, name: u.name || u.email };
+    } catch (_) { /* on retombe sur le cabinet */ }
+  }
   try {
     const cabinet = await billing.findById(req.cabinetId);
     return {
