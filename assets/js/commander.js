@@ -21,15 +21,9 @@ const ERREURS = {
   technique: 'Une erreur est survenue de notre côté. Réessayez dans un instant.'
 };
 
-/* Prix mensuel affiché à côté de chaque offre. Le tarif est déjà renvoyé par
-   /api/billing/plans ; il manquait simplement à l'affichage. */
-function formatPrix(value, currency) {
-  const n = Number(value || 0);
-  if (!n) return '';
-  const net = String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return net + ' ' + (currency === 'XOF' ? 'FCFA' : currency || '') + '/mois';
-}
-
+/* Aucun prix sur le formulaire de création de compte : on ne montre que le
+   volume de chaque offre. Le tarif se découvre dans l'espace, au moment de
+   s'abonner. Ne pas réintroduire `plan.price` ici. */
 function renderPlans() {
   const box = $('planChoice');
   box.innerHTML = '';
@@ -41,8 +35,7 @@ function renderPlans() {
       : 'utilisateurs illimités';
     label.innerHTML = `
       <input type="radio" name="plan" value="${plan.id}" ${plan.id === SELECTED ? 'checked' : ''}>
-      <span><b>${plan.label}</b><span>${plan.limits.dossiers} dossiers · ${userTxt}</span></span>
-      <span class="prix">${formatPrix(plan.price, plan.currency)}</span>`;
+      <span><b>${plan.label}</b><span>${plan.limits.dossiers} dossiers · ${userTxt}</span></span>`;
     label.addEventListener('click', () => {
       SELECTED = plan.id;
       for (const el of box.querySelectorAll('.ord__opt')) el.classList.remove('is-on');
