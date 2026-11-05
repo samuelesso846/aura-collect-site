@@ -101,7 +101,82 @@ async function summaryPdf(dossier, tplName) {
   return Buffer.from(await doc.save({ useObjectStreams: false }));
 }
 
-async function buildZip(res, dossier, tplName) {
+/* Journal des décisions, sous forme lisible et opposable : une ligne par
+   événement, dans l'ordre chronologique, avec auteur et motif. */
+async function journalPdf(dossier, tplName, decisions) {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  let page = doc.addPage([595, 842]);
+  const { width, height } = page.getSize();
+  const M = 56;
+  let y = height - M;
+
+  const ink = rgb(0.04, 0.055, 0.1);
+  const muted = rgb(0.36, 0.39, 0.47);
+  const line = rgb(0.88, 0.9, 0.94);
+
+  const head = () => {
+    page.drawText('AURA COLLECT', { x: M, y, size: 9, font: bold, color: rgb(0.42, 0.29, 1) });
+    y -= 26;
+    page.drawText(sanitize('Journal des décisions — ' + dossier.client), { x: M, y, size: 17, font: bold, color: ink });
+    y -= 18;
+    page.drawText(sanitize(tplName + '  ·  ' + decisions.length + ' événements'), { x: M, y, size: 9.5, font, color: muted });
+    y -= 20;
+  };
+  head();
+
+  const LIBELLES = {
+    creation: 'Dossier créé',
+    depot: 'Pièce déposée',
+    verdict_ia: 'Vérification automatique',
+    validation: 'Pièce validée par le cabinet',
+    refus: 'Nouvelle version demandée',
+    forcage: 'Validation forcée par le cabinet',
+    scellement: 'Dossier scellé'
+  };
+  const ACTEURS = { ia: 'IA', client: 'Client', cabinet: 'Cabinet', systeme: 'Système' };
+
+  if (!decisions.length) {
+    page.drawText('Aucun événement enregistré.', { x: M, y, size: 10, font, color: muted });
+  }
+
+  for (const d of decisions) {
+    if (y < M + 90) { page = doc.addPage([595, 842]); y = height - M; }
+
+    const quand = new Date(d.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+    const acteur = (ACTEURS[d.actor_kind] || d.actor_kind) + (d.actor_email ? ' — ' + d.actor_email : '');
+    const titre = (LIBELLES[d.action] || d.action) + (d.piece_label ? ' · ' + d.piece_label : '');
+
+    page.drawText(sanitize(quand), { x: M, y, size: 8.5, font, color: muted });
+    page.drawText(sanitize(titre).slice(0, 70), { x: M + 88, y, size: 10, font: bold, color: ink });
+    y -= 12;
+    page.drawText(sanitize(acteur).slice(0, 82), { x: M + 88, y, size: 8.5, font, color: muted });
+    y -= 11;
+
+    let texte = String(d.reason || '').replace(/\s+/g, ' ').trim();
+    if (d.provider) texte += (texte ? ' ' : '') + '(fournisseur : ' + d.provider + ')';
+    if (d.confidence !== null && d.confidence !== undefined) {
+      texte += ' (confiance ' + Math.round(Number(d.confidence) * (Number(d.confidence) <= 1 ? 100 : 1)) + ' %)';
+    }
+    let reste = sanitize(texte).slice(0, 260);
+    while (reste.length) {
+      const bout = reste.slice(0, 84);
+      page.drawText(bout, { x: M + 88, y, size: 8.5, font, color: muted });
+      reste = reste.slice(84);
+      y -= 10;
+      if (y < M + 40) { page = doc.addPage([595, 842]); y = height - M; }
+    }
+
+    y -= 6;
+    page.drawLine({ start: { x: M, y }, end: { x: width - M, y }, thickness: 0.6, color: line });
+    y -= 14;
+  }
+
+  return doc.save();
+}
+
+async function buildZip(res, dossier, tplName, decisions) {
   const folder = store.slug(lastName(dossier.client)) + '_' + store.slug(tplName) + '_' + new Date().getFullYear();
   const archive = archiver('zip', { zlib: { level: 6 } });
 
@@ -127,6 +202,11 @@ async function buildZip(res, dossier, tplName) {
   const sommaire = await summaryPdf(dossier, tplName);
   archive.append(sommaire, { name: folder + '/sommaire.pdf' });
 
+  if (Array.isArray(decisions) && decisions.length) {
+    const journal = await journalPdf(dossier, tplName, decisions);
+    archive.append(journal, { name: folder + '/journal-des-decisions.pdf' });
+  }
+
   if (dossier.sealHash && dossier.sealManifest) {
     const cert = await seal.certificatePdf(dossier.sealManifest, dossier.sealHash);
     archive.append(cert, { name: folder + '/certificat.pdf' });
@@ -148,4 +228,4 @@ async function buildZip(res, dossier, tplName) {
   await archive.finalize();
 }
 
-module.exports = { buildZip, exportName };
+module.exports = { buildZip, exportName, journalPdf };

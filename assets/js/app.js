@@ -247,6 +247,44 @@
     '</div>';
   }
 
+  /* Journal des décisions : qui, quand, pourquoi. Lecture seule. */
+  var JOURNAL_LABELS = {
+    creation: 'Dossier créé',
+    depot: 'Pièce déposée',
+    verdict_ia: 'Vérification automatique',
+    validation: 'Pièce validée',
+    refus: 'Nouvelle version demandée',
+    forcage: 'Validation forcée',
+    scellement: 'Dossier scellé'
+  };
+  var JOURNAL_ACTORS = { ia: 'IA', client: 'Client', cabinet: 'Cabinet', systeme: 'Système' };
+
+  async function loadJournal(id) {
+    var box = $('#journalBox');
+    if (!box) return;
+    try {
+      var r = await api('/api/dossiers/' + id + '/journal');
+      var ev = r.events || [];
+      if (!ev.length) {
+        box.textContent = 'Aucun événement enregistré pour le moment.';
+        return;
+      }
+      box.innerHTML = ev.map(function (e) {
+        var titre = (JOURNAL_LABELS[e.action] || e.action) + (e.piece_label ? ' · ' + e.piece_label : '');
+        var quand = new Date(e.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+        var acteur = (JOURNAL_ACTORS[e.actor_kind] || e.actor_kind) + (e.actor_email ? ' — ' + e.actor_email : '');
+        var detail = quand + ' · ' + acteur;
+        if (e.reason) detail += ' — ' + e.reason;
+        return '<div class="obstacle"><span class="obstacle__dot"></span><div>' +
+          '<div class="obstacle__t">' + esc(titre) + '</div>' +
+          '<div class="obstacle__d">' + esc(detail) + '</div>' +
+        '</div></div>';
+      }).join('');
+    } catch (err) {
+      box.textContent = 'Journal indisponible pour ce dossier.';
+    }
+  }
+
   function openDrawer(id) {
     var d = state.dossiers.filter(function (x) { return x.id === id; })[0];
     if (!d) return;
@@ -312,7 +350,13 @@
       '<div class="drawer__section">' +
         '<div class="drawer__label">Pièces du dossier</div>' +
         d.pieces.map(function (p) { return pieceRow(d, p); }).join('') +
+      '</div>' +
+      '<div class="drawer__section">' +
+        '<div class="drawer__label">Journal des décisions</div>' +
+        '<div id="journalBox" class="detail-note" style="margin-top:6px">Chargement…</div>' +
       '</div>' + sealHtml;
+
+    loadJournal(d.id);
 
     $('#copyLink').addEventListener('click', function () {
       if (navigator.clipboard) navigator.clipboard.writeText(d.link).then(function () { toast('Lien copié'); });

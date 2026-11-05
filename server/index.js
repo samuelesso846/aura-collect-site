@@ -112,9 +112,9 @@ function sign(value) {
 
 /* Le cookie porte l'échéance ET l'identifiant du cabinet : c'est lui qui délimite
    ce que la session a le droit de voir. */
-function issueSession(cabinetId) {
+function issueSession(cabinetId, userId) {
   const exp = Date.now() + 12 * 3600 * 1000;
-  const payload = exp + ':' + cabinetId;
+  const payload = exp + ':' + cabinetId + ':' + (userId || '');
   return Buffer.from(payload).toString('base64url') + '.' + sign(payload);
 }
 
@@ -130,15 +130,16 @@ function readSession(req) {
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  const [exp, cabinetId] = payload.split(':');
+  const [exp, cabinetId, userId] = payload.split(':');
   if (!cabinetId || Number(exp) <= Date.now()) return null;
-  return { cabinetId };
+  return { cabinetId, userId: userId || null };
 }
 
 function requireAuth(req, res, next) {
   const session = readSession(req);
   if (!session) return res.status(401).json({ error: 'Non authentifié' });
   req.cabinetId = session.cabinetId;
+  req.userId = session.userId || null;
   next();
 }
 
@@ -358,6 +359,37 @@ async function cabinetNameOf(cabinetId) {
   }
 }
 
+/* Auteur d'un geste, pour le journal. Aujourd'hui un seul compte par cabinet ;
+   dès que les utilisateurs multiples arrivent, c'est la personne connectée. */
+async function actorOf(req) {
+  if (req.actor) return req.actor;
+  try {
+    const cabinet = await billing.findById(req.cabinetId);
+    return {
+      kind: 'cabinet',
+      email: (cabinet && cabinet.email) || null,
+      name: (cabinet && cabinet.name) || null
+    };
+  } catch (_) {
+    return { kind: 'cabinet', email: null, name: null };
+  }
+}
+
+/* Écrit une ligne au journal sans jamais faire échouer le geste métier. */
+async function trace(entry) {
+  try { await store.addDecision(entry); } catch (err) {
+    console.error('[journal] écriture impossible :', err.message);
+  }
+}
+
+/* Les liens remis aux clients portent le domaine du cabinet s'il en a déclaré
+   un : c'est ce qu'il a payé, et cela rassure son client. */
+function baseFor(cabinet, req) {
+  const d = cabinet && cabinet.domain;
+  if (d) return 'https://' + d;
+  return baseUrl(req);
+}
+
 function baseUrl(req) {
   if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, '');
   const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
@@ -433,8 +465,12 @@ app.post('/api/login', async (req, res, next) => {
     }
 
     let cabinet = null;
+    let user = null;
     if (email) {
-      cabinet = await billing.findByEmail(email);
+      // Un utilisateur d'abord : plusieurs personnes peuvent partager un cabinet.
+      user = await store.findUserByEmail(email);
+      if (user) cabinet = await billing.findById(user.cabinet_id);
+      if (!user) cabinet = await billing.findByEmail(email);
       if (!cabinet) {
         loginFail('ip', ip, LOGIN_MAX_IP);
         loginFail('pair', ip + '|' + email, LOGIN_MAX_PAIR);
@@ -442,13 +478,19 @@ app.post('/api/login', async (req, res, next) => {
         // à un inconnu quelles adresses ont un compte chez nous.
         return res.status(401).json({ error: 'Identifiants incorrects.' });
       }
+      // Invitation non encore acceptée : aucun mot de passe n'existe.
+      if (user && !user.password_hash) {
+        return res.status(401).json({ error: 'Invitation non activée : ouvrez le lien qui vous a été transmis pour choisir votre mot de passe.' });
+      }
     } else {
       // Accès historique (avant les comptes) : un seul cabinet, mot de passe partagé.
       cabinet = await billing.ensureCabinet();
     }
 
     let ok = false;
-    if (cabinet.password_hash) {
+    if (user && user.password_hash) {
+      ok = verifyPassword(given, user.password_hash);
+    } else if (cabinet.password_hash) {
       ok = verifyPassword(given, cabinet.password_hash);
     } else {
       const a = Buffer.from(given);
@@ -465,8 +507,14 @@ app.post('/api/login', async (req, res, next) => {
     if (email) loginClear('pair', ip + '|' + email);
 
     cabinet = await billing.startTrialIfMissing(cabinet);
-    setSessionCookie(res, issueSession(cabinet.id));
-    res.json({ ok: true, cabinet: cabinet.name, access: billing.accessOf(cabinet) });
+    if (user) await store.touchUserLogin(user.id);
+    setSessionCookie(res, issueSession(cabinet.id, user ? user.id : null));
+    res.json({
+      ok: true,
+      cabinet: cabinet.name,
+      user: user ? { name: user.name, email: user.email, role: user.role } : null,
+      access: billing.accessOf(cabinet)
+    });
   } catch (err) {
     next(err);
   }
@@ -484,6 +532,7 @@ app.get('/api/me', async (req, res) => {
   const session = readSession(req);
   let cabinet = null;
   let access = null;
+  let user = null;
   if (session) {
     try {
       cabinet = await billing.findById(session.cabinetId);
@@ -491,12 +540,14 @@ app.get('/api/me', async (req, res) => {
          sans échéance resterait bloqué sans jamais repasser par la connexion. */
       cabinet = await billing.startTrialIfMissing(cabinet);
       if (cabinet) access = billing.accessOf(cabinet);
+      if (session.userId) user = await store.getUser(session.userId, session.cabinetId);
     } catch (err) { console.error('[me] cabinet:', err.message); }
   }
 
   res.json({
     authenticated: Boolean(session && cabinet),
     cabinet: cabinet ? cabinet.name : null,
+    user: user ? { name: user.name, email: user.email, role: user.role, id: user.id } : null,
     access,
     ai: ai.status(),
     mail: mail.mode(),
@@ -551,6 +602,14 @@ app.post('/api/dossiers/:id/pieces/:key/reject', requireAuth, async (req, res, n
       status: 'ko',
       reason: 'Le cabinet demande une nouvelle version de cette pièce.'
     });
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: dossier.id,
+      pieceKey: piece.key, pieceLabel: piece.label,
+      action: 'refus', status: 'ko',
+      reason: 'Nouvelle version demandée au client (verdict précédent : ' + piece.status + ')',
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
     const fresh = await store.getDossier(dossier.id, req.cabinetId);
     res.json({ dossier: cabinetDossier(fresh, baseUrl(req)) });
   } catch (err) { next(err); }
@@ -583,8 +642,211 @@ app.post('/api/dossiers/:id/pieces/:key/confirm', requireAuth, async (req, res, 
       ? 'Validée par le cabinet malgré l’avis de l’IA. ' + piece.reason
       : 'Confirmée par le cabinet.';
     await store.updatePiece(dossier.id, piece.key, { status: 'valide', reason });
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: dossier.id,
+      pieceKey: piece.key, pieceLabel: piece.label,
+      action: forcable ? 'forcage' : 'validation', status: 'valide', reason,
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
     const fresh = await store.getDossier(dossier.id, req.cabinetId);
     res.json({ dossier: cabinetDossier(fresh, baseUrl(req)) });
+  } catch (err) { next(err); }
+});
+
+/* ---------- équipe : plusieurs personnes dans un même cabinet ----------
+   L'invitation passe par un lien, pas par un email : c'est le canal choisi
+   (WhatsApp) qui transporte le lien. Le lien expire en 7 jours. */
+const INVITE_DAYS = 7;
+
+async function estProprietaire(req) {
+  if (!req.userId) return true;                      // compte historique = propriétaire
+  const u = await store.getUser(req.userId, req.cabinetId);
+  return Boolean(u && u.role === 'owner');
+}
+
+app.get('/api/team', requireAuth, async (req, res, next) => {
+  try {
+    const cabinet = await billing.findById(req.cabinetId);
+    if (!cabinet) return res.status(401).json({ error: 'Session invalide.' });
+    const access = billing.accessOf(cabinet);
+    const users = await store.listUsers(req.cabinetId);
+    res.json({
+      users,
+      me: req.userId || null,
+      owner: await estProprietaire(req),
+      limits: { users: access.limits.users },
+      plan: access.plan
+    });
+  } catch (err) { next(err); }
+});
+
+app.post('/api/team/invite', requireAuth, async (req, res, next) => {
+  try {
+    if (!(await estProprietaire(req))) {
+      return res.status(403).json({ error: "Seul le propriétaire du cabinet peut inviter quelqu'un." });
+    }
+    const cabinet = await billing.findById(req.cabinetId);
+    if (!cabinet) return res.status(401).json({ error: 'Session invalide.' });
+    const access = billing.accessOf(cabinet);
+
+    const name = String((req.body && req.body.name) || '').trim();
+    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ error: 'Adresse email invalide.' });
+    }
+
+    const dejaCabinet = await billing.findByEmail(email);
+    const dejaUser = await store.findUserByEmail(email);
+    if (dejaCabinet || dejaUser) {
+      return res.status(409).json({ error: 'Cette adresse est déjà utilisée sur Aura Collect.' });
+    }
+
+    const max = Number(access.limits.users || 0);   // 0 = illimité
+    if (max > 0) {
+      const actuels = await store.countUsers(req.cabinetId);
+      if (actuels >= max) {
+        return res.status(402).json({
+          error: `Votre offre ${access.plan} est limitée à ${max} utilisateur${max > 1 ? 's' : ''}. Passez à l’offre supérieure pour inviter davantage de monde.`,
+          used: actuels, max
+        });
+      }
+    }
+
+    const token = store.token(24);
+    const expiresAt = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
+    const created = await store.inviteUser(req.cabinetId, {
+      name, email, role: 'member', invitedBy: cabinet.email, token, expiresAt
+    });
+
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: '_cabinet', action: 'invitation',
+      reason: 'Invitation envoyée à ' + email,
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
+
+    res.status(201).json({
+      user: created,
+      inviteUrl: baseUrl(req) + '/invitation.html?t=' + token,
+      expiresAt
+    });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Cette adresse est déjà invitée.' });
+    }
+    if (err.code === '42P01') {
+      return res.status(503).json({ error: 'Les comptes multiples ne sont pas encore activés sur cette base. La migration doit être passée une fois.' });
+    }
+    next(err);
+  }
+});
+
+app.post('/api/team/:id/revoke', requireAuth, async (req, res, next) => {
+  try {
+    if (!(await estProprietaire(req))) {
+      return res.status(403).json({ error: 'Seul le propriétaire peut retirer un accès.' });
+    }
+    const gone = await store.revokeUser(req.params.id, req.cabinetId);
+    if (!gone) return res.status(404).json({ error: 'Utilisateur introuvable ou propriétaire.' });
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: '_cabinet', action: 'revocation',
+      reason: 'Accès retiré à un utilisateur',
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+/* ---------- domaine personnalisé (offre Cabinet) ---------- */
+const HOST_RE = /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
+
+app.get('/api/domain', requireAuth, async (req, res, next) => {
+  try {
+    const cabinet = await billing.findById(req.cabinetId);
+    if (!cabinet) return res.status(401).json({ error: 'Session invalide.' });
+    const access = billing.accessOf(cabinet);
+    res.json({
+      domain: cabinet.domain || null,
+      plan: access.plan,
+      allowed: access.plan === 'cabinet',
+      target: (process.env.PUBLIC_BASE_URL || 'https://aura-collect.onrender.com').replace(/^https?:\/\//, '')
+    });
+  } catch (err) { next(err); }
+});
+
+app.post('/api/domain', requireAuth, async (req, res, next) => {
+  try {
+    if (!(await estProprietaire(req))) {
+      return res.status(403).json({ error: 'Seul le propriétaire peut modifier le domaine.' });
+    }
+    const cabinet = await billing.findById(req.cabinetId);
+    if (!cabinet) return res.status(401).json({ error: 'Session invalide.' });
+    const access = billing.accessOf(cabinet);
+    if (access.plan !== 'cabinet') {
+      return res.status(402).json({ error: 'Le domaine personnalisé est réservé à l’offre Cabinet.' });
+    }
+
+    let value = String((req.body && req.body.domain) || '').trim().toLowerCase();
+    value = value.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/\.$/, '');
+    if (!value) {
+      await store.setDomain(req.cabinetId, null);
+      return res.json({ ok: true, domain: null });
+    }
+    if (value.includes('onrender.com') || !HOST_RE.test(value)) {
+      return res.status(400).json({ error: 'Indiquez un nom de domaine valide, par exemple dossiers.moncabinet.com.' });
+    }
+
+    const dejaPris = await store.cabinetByDomain(value);
+    if (dejaPris && dejaPris.id !== req.cabinetId) {
+      return res.status(409).json({ error: 'Ce domaine est déjà utilisé par un autre cabinet.' });
+    }
+
+    const saved = await store.setDomain(req.cabinetId, value);
+    if (saved === null) {
+      return res.status(503).json({ error: 'La mise à jour du schéma n’est pas encore passée. Réessayez après la migration.' });
+    }
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: '_cabinet', action: 'domaine',
+      reason: 'Domaine personnalisé réglé sur ' + value,
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
+    res.json({ ok: true, domain: saved });
+  } catch (err) { next(err); }
+});
+
+/* Ouverture d'une invitation : public, protégé par le jeton du lien. */
+app.get('/api/invitation/:token', async (req, res, next) => {
+  try {
+    const u = await store.getUserByInvite(req.params.token);
+    if (!u) return res.status(404).json({ error: 'Invitation inconnue ou déjà utilisée.' });
+    if (u.invite_expires_at && new Date(u.invite_expires_at).getTime() < Date.now()) {
+      return res.status(410).json({ error: 'Cette invitation a expiré. Demandez-en une nouvelle.' });
+    }
+    const cabinet = await billing.findById(u.cabinet_id);
+    res.json({ email: u.email, name: u.name, cabinet: cabinet ? cabinet.name : '' });
+  } catch (err) { next(err); }
+});
+
+app.post('/api/invitation/:token', async (req, res, next) => {
+  try {
+    const u = await store.getUserByInvite(req.params.token);
+    if (!u) return res.status(404).json({ error: 'Invitation inconnue ou déjà utilisée.' });
+    if (u.invite_expires_at && new Date(u.invite_expires_at).getTime() < Date.now()) {
+      return res.status(410).json({ error: 'Cette invitation a expiré. Demandez-en une nouvelle.' });
+    }
+    const name = String((req.body && req.body.name) || '').trim();
+    const password = String((req.body && req.body.password) || '');
+    if (name.length < 2) return res.status(400).json({ error: 'Indiquez votre nom.' });
+    if (password.length < 8) return res.status(400).json({ error: 'Mot de passe : 8 caractères minimum.' });
+
+    const active = await store.activateUser(u.id, { name, passwordHash: hashPassword(password) });
+    if (!active) return res.status(410).json({ error: 'Invitation déjà utilisée.' });
+
+    setSessionCookie(res, issueSession(active.cabinet_id, active.id));
+    res.json({ ok: true, cabinetId: active.cabinet_id, redirect: '/app?bienvenue=1' });
   } catch (err) { next(err); }
 });
 
@@ -927,7 +1189,8 @@ app.get('/api/templates', requireAuth, (req, res) => {
 
 app.get('/api/dossiers', requireAuth, async (req, res, next) => {
   try {
-    const base = baseUrl(req);
+    const cabinet = await billing.findById(req.cabinetId);
+    const base = baseFor(cabinet, req);
     const dossiers = (await store.listDossiers(req.cabinetId)).map((d) => cabinetDossier(d, base));
     res.json({ dossiers, cabinet: await cabinetNameOf(req.cabinetId) });
   } catch (err) { next(err); }
@@ -967,7 +1230,15 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
     });
     dossier.cabinetId = req.cabinetId;
     await store.insertDossier(dossier);
-    const base = baseUrl(req);
+
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: dossier.id, action: 'creation',
+      reason: `${dossier.pieces.length} pièces demandées — modèle ${store.templateById(template).name}`,
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
+
+    const base = baseFor(cabinet, req);
     const entry = await mail.sendMagicLink(dossier, base, cabinet.name);
 
     res.status(201).json({
@@ -989,11 +1260,22 @@ app.post('/api/dossiers/:id/remind', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/* Journal complet d'un dossier : lecture seule, jamais modifiable. */
+app.get('/api/dossiers/:id/journal', requireAuth, async (req, res, next) => {
+  try {
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
+    if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
+    const events = await store.listDecisions(dossier.id, req.cabinetId);
+    res.json({ dossier: dossier.id, client: dossier.client, events });
+  } catch (err) { next(err); }
+});
+
 app.get('/api/dossiers/:id/export', requireAuth, async (req, res, next) => {
   try {
     const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
-    await archive.buildZip(res, dossier, store.templateById(dossier.template).name);
+    const decisions = await store.listDecisions(dossier.id, req.cabinetId);
+    await archive.buildZip(res, dossier, store.templateById(dossier.template).name, decisions);
   } catch (err) { next(err); }
 });
 
@@ -1014,6 +1296,14 @@ app.post('/api/dossiers/:id/seal', requireAuth, async (req, res, next) => {
     const manifest = await seal.buildManifest(dossier, await cabinetNameOf(dossier.cabinetId));
     const hash = seal.hashManifest(manifest);
     await store.sealDossier(dossier.id, hash, manifest.sealedAt, manifest);
+
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: dossier.id,
+      action: 'scellement', status: 'scelle',
+      reason: 'Empreinte SHA-256 ' + hash.slice(0, 16) + '… sur ' + dossier.pieces.length + ' pièces',
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
     res.json({ hash, sealedAt: manifest.sealedAt });
   } catch (err) { next(err); }
 });
@@ -1136,6 +1426,22 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
       confidence: verdict.confidence,
       provider: verdict.provider || '',
       at: new Date().toISOString()
+    });
+
+    /* Deux traces distinctes : le dépôt (le client) et le verdict (la machine).
+       C'est la distinction qui compte en cas de contrôle. */
+    await trace({
+      cabinetId: dossier.cabinetId, dossierId: dossier.id,
+      pieceKey: piece.key, pieceLabel: piece.label,
+      action: 'depot', status: 'depose',
+      reason: 'Fichier « ' + req.file.originalname + ' » reçu (' + Math.round(req.file.size / 1024) + ' Ko)',
+      actorKind: 'client', actorEmail: dossier.email
+    });
+    await trace({
+      cabinetId: dossier.cabinetId, dossierId: dossier.id,
+      pieceKey: piece.key, pieceLabel: piece.label,
+      action: 'verdict_ia', status: verdict.status, reason: verdict.reason || '',
+      actorKind: 'ia', provider: verdict.provider || '', confidence: verdict.confidence
     });
 
     const fresh = await store.getDossierById(dossier.id) || dossier;

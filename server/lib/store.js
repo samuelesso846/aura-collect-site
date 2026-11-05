@@ -604,9 +604,163 @@ async function setPassword(cabinetId, hash) {
   return rows[0] || null;
 }
 
+/* Domaine personnalisé du cabinet (offre Cabinet). */
+async function setDomain(cabinetId, domain) {
+  try {
+    const { rows } = await pool.query(
+      'update aura.cabinets set domain = $2, updated_at = now() where id = $1 returning domain',
+      [cabinetId, domain || null]);
+    return rows[0] ? rows[0].domain : null;
+  } catch (err) {
+    if (err.code === '42703') return null;   // colonne absente : migration non passée
+    throw err;
+  }
+}
+
+async function getDomain(cabinetId) {
+  try {
+    const { rows } = await pool.query('select domain from aura.cabinets where id = $1', [cabinetId]);
+    return rows[0] ? rows[0].domain : null;
+  } catch (err) {
+    if (err.code === '42703') return null;
+    throw err;
+  }
+}
+
+async function cabinetByDomain(domain) {
+  try {
+    const { rows } = await pool.query(
+      'select * from aura.cabinets where lower(domain) = lower($1) limit 1', [domain]);
+    return rows[0] || null;
+  } catch (err) {
+    if (err.code === '42703') return null;
+    throw err;
+  }
+}
+
 async function healthy() {
   const { rows } = await pool.query('select 1 as ok');
   return rows[0].ok === 1;
+}
+
+/* ---------- utilisateurs d'un cabinet ----------
+   Tant que la migration `aura.users` n'est pas passée (42P01), toutes ces
+   fonctions renvoient une valeur neutre : la connexion retombe alors sur le
+   compte du cabinet, et rien ne casse. */
+function sansTable(err) { return err && err.code === '42P01'; }
+
+async function listUsers(cabinetId) {
+  try {
+    const { rows } = await pool.query(
+      `select id, name, email, role, status, created_at, last_login_at
+         from aura.users where cabinet_id = $1
+        order by (role = 'owner') desc, created_at asc`, [cabinetId]);
+    return rows;
+  } catch (err) { if (sansTable(err)) return []; throw err; }
+}
+
+async function countUsers(cabinetId) {
+  try {
+    const { rows } = await pool.query(
+      "select count(*)::int n from aura.users where cabinet_id = $1 and status <> 'revoked'", [cabinetId]);
+    return rows[0].n;
+  } catch (err) { if (sansTable(err)) return 1; throw err; }
+}
+
+async function findUserByEmail(email) {
+  try {
+    const { rows } = await pool.query(
+      'select * from aura.users where lower(email) = lower($1) and status <> \'revoked\' limit 1', [email]);
+    return rows[0] || null;
+  } catch (err) { if (sansTable(err)) return null; throw err; }
+}
+
+async function getUser(id, cabinetId) {
+  try {
+    const { rows } = await pool.query(
+      'select * from aura.users where id = $1 and cabinet_id = $2', [id, cabinetId]);
+    return rows[0] || null;
+  } catch (err) { if (sansTable(err)) return null; throw err; }
+}
+
+async function inviteUser(cabinetId, { name, email, role, invitedBy, token, expiresAt }) {
+  const { rows } = await pool.query(
+    `insert into aura.users (cabinet_id, name, email, role, status, invited_by, invite_token, invite_expires_at)
+     values ($1,$2,$3,$4,'invited',$5,$6,$7)
+     returning id, name, email, role, status, created_at`,
+    [cabinetId, name || '', email, role === 'owner' ? 'owner' : 'member', invitedBy || null, token, expiresAt]);
+  return rows[0];
+}
+
+async function getUserByInvite(token) {
+  try {
+    const { rows } = await pool.query(
+      "select * from aura.users where invite_token = $1 and status = 'invited' limit 1", [token]);
+    return rows[0] || null;
+  } catch (err) { if (sansTable(err)) return null; throw err; }
+}
+
+async function activateUser(id, { name, passwordHash }) {
+  const { rows } = await pool.query(
+    `update aura.users
+        set name = coalesce(nullif($2,''), name), password_hash = $3,
+            status = 'active', invite_token = null, invite_expires_at = null
+      where id = $1
+      returning id, cabinet_id, name, email, role, status`,
+    [id, name || '', passwordHash]);
+  return rows[0] || null;
+}
+
+async function revokeUser(id, cabinetId) {
+  const { rows } = await pool.query(
+    `update aura.users set status = 'revoked', invite_token = null
+      where id = $1 and cabinet_id = $2 and role <> 'owner'
+      returning id`, [id, cabinetId]);
+  return rows[0] || null;
+}
+
+async function touchUserLogin(id) {
+  try { await pool.query('update aura.users set last_login_at = now() where id = $1', [id]); }
+  catch (err) { if (!sansTable(err)) throw err; }
+}
+
+/* ---------- journal des décisions (append-only) ----------
+   Chaque geste sur une pièce laisse une trace : qui, quand, pourquoi.
+   Si la migration n'est pas encore passée (42P01), on n'écrit rien et on ne
+   bloque jamais le geste métier : une pièce déposée reste déposée. */
+async function addDecision(e) {
+  try {
+    await pool.query(
+      `insert into aura.decision_log
+         (cabinet_id, dossier_id, piece_key, piece_label, action, status, reason,
+          actor_kind, actor_email, actor_name, provider, confidence)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [e.cabinetId || null, e.dossierId, e.pieceKey || null, e.pieceLabel || null,
+       e.action, e.status || null, e.reason || null, e.actorKind || 'systeme',
+       e.actorEmail || null, e.actorName || null, e.provider || null,
+       (e.confidence === undefined || e.confidence === null) ? null : Number(e.confidence)]
+    );
+  } catch (err) {
+    if (err.code !== '42P01') throw err;
+  }
+}
+
+async function listDecisions(dossierId, cabinetId) {
+  try {
+    const { rows } = await pool.query(
+      `select id, action, status, reason, actor_kind, actor_email, actor_name,
+              provider, confidence, piece_key, piece_label, created_at
+         from aura.decision_log
+        where dossier_id = $1
+          and ($2::uuid is null or cabinet_id = $2::uuid)
+        order by created_at asc, id asc`,
+      [dossierId, cabinetId || null]
+    );
+    return rows;
+  } catch (err) {
+    if (err.code === '42P01') return [];
+    throw err;
+  }
 }
 
 module.exports = {
@@ -615,5 +769,7 @@ module.exports = {
   mapClient, listClients, getClient, ensureClient,
   listDossiers, countDossiers, getDossier, getDossierById, getByToken, insertDossier,
   updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy, sealDossier,
-  addLead, listLeads, setPassword
+  addLead, listLeads, setPassword, addDecision, listDecisions,
+  listUsers, countUsers, findUserByEmail, getUser, inviteUser, getUserByInvite,
+  activateUser, revokeUser, touchUserLogin, setDomain, getDomain, cabinetByDomain
 };
