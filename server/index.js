@@ -1079,12 +1079,26 @@ app.post('/api/signup', async (req, res, next) => {
       return fail('existe', 'Un compte existe déjà avec cette adresse. Connectez-vous depuis l’espace cabinet.', 409);
     }
 
+    const passwordHash = hashPassword(password);
     const cabinet = await billing.createAccount({
-      name, email, plan: planId, passwordHash: hashPassword(password)
+      name, email, plan: planId, passwordHash
     });
 
+    /* Le cabinet naît avec son propriétaire : sans cette ligne, le premier
+       compte n'apparaîtrait pas dans l'équipe et le journal n'aurait pas
+       d'auteur. Un échec ici ne doit pas annuler l'inscription. */
+    let owner = null;
+    try {
+      owner = await store.inviteUser(cabinet.id, {
+        name, email, role: 'owner', invitedBy: null, token: null, expiresAt: null
+      });
+      if (owner) owner = await store.activateUser(owner.id, { name, passwordHash });
+    } catch (err) {
+      console.error('[signup] proprietaire:', err.message);
+    }
+
     // Connecté immédiatement : on ne fait pas ressaisir ce qui vient d'être saisi.
-    setSessionCookie(res, issueSession(cabinet.id));
+    setSessionCookie(res, issueSession(cabinet.id, owner ? owner.id : null));
 
     if (isForm) return res.redirect(303, '/app?bienvenue=1');
     res.json({ ok: true, trialDays: billing.TRIAL_DAYS, redirect: '/app?bienvenue=1' });
