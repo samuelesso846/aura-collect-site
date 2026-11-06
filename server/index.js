@@ -968,6 +968,90 @@ app.post('/api/password/reset-request', async (req, res) => {
   }
 });
 
+/* ---------- console opérateur : transmettre un lien de réinitialisation ----------
+   Tant que l'envoi d'email n'est pas configuré, un cabinet qui perd son mot de
+   passe n'a aucun moyen de récupérer son accès. Cette route, réservée à
+   l'opérateur et protégée par OPERATEUR_CLE, liste les demandes récentes et
+   permet de régénérer un lien à transmettre soi-même par WhatsApp.
+   Sans OPERATEUR_CLE définie, la route n'existe pas. */
+function cleOperateurValide(cle) {
+  const attendu = process.env.OPERATEUR_CLE || '';
+  if (!attendu) return false;
+  const a = Buffer.from(String(attendu), 'utf8');
+  const b = Buffer.from(String(cle || ''), 'utf8');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+function lienDepuisCorps(corps) {
+  const trouve = String(corps || '').match(/https?:\/\/[^\s]+\/reset\?token=[^\s]+/);
+  return trouve ? trouve[0] : '';
+}
+
+/* L'expiration est portée par le jeton lui-même : on la relit au lieu de la
+   déduire de la date d'envoi, pour ne jamais annoncer un lien encore valable. */
+function expirationDuLien(lien) {
+  if (!lien) return 0;
+  const brut = String(lien).split('token=').pop();
+  let charge = '';
+  try { charge = decodeURIComponent(brut).split('.')[0]; } catch (_) { return 0; }
+  try {
+    const contenu = JSON.parse(Buffer.from(charge, 'base64url').toString('utf8'));
+    return Number(contenu.x) || 0;
+  } catch (_) { return 0; }
+}
+
+app.post('/api/operateur/liens', async (req, res) => {
+  if (!process.env.OPERATEUR_CLE) {
+    return res.status(404).json({ ok: false, error: 'Indisponible.' });
+  }
+  if (!cleOperateurValide((req.body || {}).cle)) {
+    return res.status(403).json({ ok: false, error: 'Clé incorrecte.' });
+  }
+  try {
+    const email = String((req.body || {}).email || '').trim().toLowerCase();
+    const sortie = { ok: true, demandes: [] };
+
+    const lignes = await store.listOutbox(80);
+    sortie.demandes = lignes
+      .filter((l) => String(l.subject || '').indexOf('Réinitialisation') === 0)
+      .map((l) => {
+        const lien = lienDepuisCorps(l.body);
+        const exp = expirationDuLien(lien);
+        return {
+          email: l.recipient,
+          quand: l.created_at,
+          lien,
+          expire_le: exp ? new Date(exp).toISOString() : '',
+          valide: exp > Date.now()
+        };
+      })
+      .slice(0, 10);
+
+    if (email) {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        return res.status(400).json({ ok: false, error: 'Adresse email invalide.' });
+      }
+      const cabinet = await billing.findByEmail(email);
+      if (!cabinet) {
+        return res.status(404).json({ ok: false, error: 'Aucun compte avec cette adresse.' });
+      }
+      const token = issueResetToken(cabinet);
+      sortie.nouveau = {
+        email: cabinet.email,
+        cabinet: cabinet.name || '',
+        lien: baseUrl(req) + '/reset?token=' + encodeURIComponent(token),
+        expire_le: new Date(Date.now() + RESET_TTL).toISOString()
+      };
+    }
+
+    return res.json(sortie);
+  } catch (err) {
+    console.error('[operateur] liens :', err.message);
+    return res.status(500).json({ ok: false, error: 'Erreur côté serveur.' });
+  }
+});
+
 /* Demande de contact publique.
    Auparavant, le formulaire ouvrait la messagerie du visiteur : sur mobile, où
    la plupart des prospects lisent, il n'y a souvent aucune application mail

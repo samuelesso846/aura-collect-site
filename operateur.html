@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<base href="/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console opérateur — Aura Collect</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#F3F0FF">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#6B4BFF;--ink:#171522;--ink2:#5B566E;--ink3:#8B859C;--line:#E4E0F0;--bg:#F7F5FF}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:640px;margin:0 auto;padding:44px 20px 80px}
+  .brand{display:inline-flex;align-items:center;gap:9px;font-weight:700;font-size:14px;color:var(--ink);text-decoration:none}
+  .brand__mark{width:28px;height:28px;border-radius:8px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700}
+  h1{font-size:24px;letter-spacing:-.02em;margin:22px 0 6px}
+  .lede{color:var(--ink2);font-size:14px;line-height:1.6;margin:0 0 26px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  .card h2{font-size:14px;letter-spacing:.01em;margin:0 0 4px}
+  .card p.hint{color:var(--ink3);font-size:12.5px;margin:0 0 14px;line-height:1.5}
+  label{display:block;font-size:12.5px;font-weight:600;margin:0 0 6px;color:var(--ink2)}
+  input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:14px;background:#fff;color:var(--ink)}
+  input:focus{outline:2px solid var(--brand);outline-offset:1px}
+  input.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+  button{padding:11px 16px;border:0;border-radius:9px;background:var(--brand);color:#fff;font:inherit;font-weight:600;font-size:14px;cursor:pointer}
+  button.ghost{background:#fff;color:var(--brand);border:1px solid var(--line)}
+  button[disabled]{opacity:.55;cursor:default}
+  .row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .row input{flex:1 1 200px}
+  .msg{font-size:13px;line-height:1.5;padding:10px 12px;border-radius:9px;margin-top:12px;display:none}
+  .msg.on{display:block}
+  .msg.err{background:#FDECEC;color:#8E2020}
+  .msg.ok{background:#E9F7EF;color:#1E6B3A}
+  .item{border-top:1px solid var(--line);padding:14px 0}
+  .item:first-of-type{border-top:0;padding-top:4px}
+  .item__top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .item__mail{font-weight:600;font-size:13.5px;word-break:break-all}
+  .item__when{color:var(--ink3);font-size:12px;white-space:nowrap}
+  .tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:1px}
+  .tag--ok{background:#E9F7EF;color:#1E6B3A}
+  .tag--ko{background:#FDECEC;color:#8E2020}
+  .copy{display:flex;gap:8px;margin-top:8px}
+  .copy input{font-size:11.5px}
+  .copy button{padding:9px 12px;font-size:12.5px;flex:0 0 auto}
+  .empty{color:var(--ink3);font-size:13px;padding:6px 0}
+  .foot{margin-top:26px;color:var(--ink3);font-size:12px;line-height:1.6}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="brand" href="index.html"><span class="brand__mark">A</span><span>Aura Collect</span></a>
+
+  <h1>Console opérateur</h1>
+  <p class="lede">Transmettre un lien de réinitialisation à un cabinet, sans passer par l'email.</p>
+
+  <div class="card" id="lockCard">
+    <h2>Clé d'accès</h2>
+    <p class="hint">La clé définie dans <code>OPERATEUR_CLE</code>. Elle reste dans cet onglet, elle n'est pas enregistrée sur le serveur.</p>
+    <label for="cle">Clé</label>
+    <input id="cle" type="password" autocomplete="off" spellcheck="false" placeholder="••••••••••••">
+    <div class="row"><button id="unlock">Déverrouiller</button></div>
+    <div class="msg" id="lockMsg"></div>
+  </div>
+
+  <div id="app" hidden>
+    <div class="card">
+      <h2>Générer un lien</h2>
+      <p class="hint">Le lien vaut une heure et ne sert qu'une fois. Copiez-le et envoyez-le par WhatsApp.</p>
+      <label for="email">Adresse du compte</label>
+      <div class="row">
+        <input id="email" type="email" autocomplete="off" spellcheck="false" placeholder="client@cabinet.tg">
+        <button id="gen">Générer</button>
+      </div>
+      <div class="msg" id="genMsg"></div>
+      <div id="genOut"></div>
+    </div>
+
+    <div class="card">
+      <h2>Demandes récentes</h2>
+      <p class="hint">Les demandes déposées depuis « mot de passe oublié » sur la page de connexion.</p>
+      <div id="list"><div class="empty">Chargement…</div></div>
+      <div class="row"><button class="ghost" id="reload">Actualiser</button></div>
+    </div>
+  </div>
+
+  <p class="foot">Page privée, non listée et non indexée. Ne partagez pas cette adresse.</p>
+</div>
+
+<script>
+(function () {
+  var CLE_KEY = 'aura_operateur_cle';
+  var $ = function (id) { return document.getElementById(id); };
+
+  function dire(el, texte, ok) {
+    el.className = 'msg on ' + (ok ? 'ok' : 'err');
+    el.textContent = texte;
+  }
+  function taire(el) { el.className = 'msg'; el.textContent = ''; }
+
+  function epoque(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function copiable(lien) {
+    var box = document.createElement('div');
+    box.className = 'copy';
+    var champ = document.createElement('input');
+    champ.className = 'mono';
+    champ.readOnly = true;
+    champ.value = lien;
+    champ.addEventListener('focus', function () { champ.select(); });
+    var bouton = document.createElement('button');
+    bouton.className = 'ghost';
+    bouton.textContent = 'Copier';
+    bouton.addEventListener('click', function () {
+      var fait = function () { bouton.textContent = 'Copié'; setTimeout(function () { bouton.textContent = 'Copier'; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(lien).then(fait, function () { champ.select(); document.execCommand('copy'); fait(); });
+      } else {
+        champ.select();
+        try { document.execCommand('copy'); fait(); } catch (e) {}
+      }
+    });
+    box.appendChild(champ);
+    box.appendChild(bouton);
+    return box;
+  }
+
+  function afficherNouveau(d) {
+    var zone = $('genOut');
+    zone.innerHTML = '';
+    var item = document.createElement('div');
+    item.className = 'item';
+    var top = document.createElement('div');
+    top.className = 'item__top';
+    var mail = document.createElement('div');
+    mail.className = 'item__mail';
+    mail.textContent = d.email + (d.cabinet ? ' — ' + d.cabinet : '');
+    var quand = document.createElement('div');
+    quand.className = 'item__when';
+    quand.textContent = 'valable jusqu\u2019à ' + epoque(d.expire_le);
+    top.appendChild(mail);
+    top.appendChild(quand);
+    item.appendChild(top);
+    item.appendChild(copiable(d.lien));
+    zone.appendChild(item);
+  }
+
+  function afficherDemandes(demandes) {
+    var zone = $('list');
+    zone.innerHTML = '';
+    if (!demandes || !demandes.length) {
+      var vide = document.createElement('div');
+      vide.className = 'empty';
+      vide.textContent = 'Aucune demande de réinitialisation enregistrée.';
+      zone.appendChild(vide);
+      return;
+    }
+    demandes.forEach(function (d) {
+      var item = document.createElement('div');
+      item.className = 'item';
+
+      var top = document.createElement('div');
+      top.className = 'item__top';
+
+      var mail = document.createElement('div');
+      mail.className = 'item__mail';
+      mail.textContent = d.email || '(sans adresse)';
+      var tag = document.createElement('span');
+      tag.className = 'tag ' + (d.valide ? 'tag--ok' : 'tag--ko');
+      tag.textContent = d.valide ? 'valable' : 'expiré';
+      mail.appendChild(tag);
+
+      var quand = document.createElement('div');
+      quand.className = 'item__when';
+      quand.textContent = epoque(d.quand);
+
+      top.appendChild(mail);
+      top.appendChild(quand);
+      item.appendChild(top);
+
+      if (d.lien) {
+        item.appendChild(copiable(d.lien));
+      } else if (d.valide === false) {
+        var note = document.createElement('div');
+        note.className = 'empty';
+        note.textContent = 'Lien expiré — générez-en un nouveau ci-dessus.';
+        item.appendChild(note);
+      }
+
+      zone.appendChild(item);
+    });
+  }
+
+  function charger(cle, email) {
+    var charge = { cle: cle };
+    if (email) charge.email = email;
+    return fetch('/api/operateur/liens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(charge)
+    }).then(function (r) {
+      return r.json().then(function (d) { return { ok: r.ok, status: r.status, d: d }; });
+    });
+  }
+
+  function ouvrir(cle) {
+    return charger(cle).then(function (res) {
+      if (!res.ok) {
+        taire($('lockMsg'));
+        throw new Error(res.d && res.d.error ? res.d.error : 'Clé refusée.');
+      }
+      sessionStorage.setItem(CLE_KEY, cle);
+      $('lockCard').hidden = true;
+      $('app').hidden = false;
+      afficherDemandes(res.d.demandes);
+      return res.d;
+    });
+  }
+
+  $('unlock').addEventListener('click', function () {
+    var cle = $('cle').value.trim();
+    if (!cle) return dire($('lockMsg'), 'Entrez la clé.', false);
+    this.disabled = true;
+    var bouton = this;
+    ouvrir(cle).catch(function (err) {
+      dire($('lockMsg'), err.message === 'Indisponible.' ? 'Console désactivée sur ce serveur.' : 'Clé incorrecte.', false);
+    }).then(function () { bouton.disabled = false; });
+  });
+
+  $('cle').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('unlock').click(); });
+
+  $('gen').addEventListener('click', function () {
+    var cle = sessionStorage.getItem(CLE_KEY) || '';
+    var email = $('email').value.trim();
+    if (!email) return dire($('genMsg'), 'Indiquez une adresse.', false);
+    this.disabled = true;
+    var bouton = this;
+    taire($('genMsg'));
+    charger(cle, email).then(function (res) {
+      if (!res.ok) return dire($('genMsg'), (res.d && res.d.error) || 'Génération impossible.', false);
+      if (res.d.nouveau) {
+        afficherNouveau(res.d.nouveau);
+        afficherDemandes(res.d.demandes);
+      }
+    }).catch(function () {
+      dire($('genMsg'), 'Connexion interrompue. Réessayez.', false);
+    }).then(function () { bouton.disabled = false; });
+  });
+
+  $('email').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('gen').click(); });
+
+  $('reload').addEventListener('click', function () {
+    var cle = sessionStorage.getItem(CLE_KEY) || '';
+    this.disabled = true;
+    var bouton = this;
+    charger(cle).then(function (res) {
+      if (res.ok) afficherDemandes(res.d.demandes);
+    }).catch(function () {}).then(function () { bouton.disabled = false; });
+  });
+
+  var gardee = sessionStorage.getItem(CLE_KEY);
+  if (gardee) ouvrir(gardee).catch(function () {});
+})();
+</script>
+</body>
+</html>

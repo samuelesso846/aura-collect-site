@@ -165,6 +165,8 @@ npm start
 
 Variables à définir : `CABINET_PASSWORD`, `SESSION_SECRET`, `PUBLIC_BASE_URL` (URL publique réelle), `GROQ_API_KEY`, éventuellement `RESEND_API_KEY` et `MAIL_FROM`.
 
+`OPERATEUR_CLE` (facultatif) active `/operateur`, une console privée qui régénère un lien de réinitialisation de mot de passe à transmettre soi-même par WhatsApp, tant que l'envoi d'email n'est pas configuré. Sans cette variable, la page s'affiche mais l'API répond `404` : la fonctionnalité n'existe pas. Choisissez une valeur longue et aléatoire (32 caractères ou plus) ; elle se saisit uniquement dans la console, elle n'est jamais stockée côté serveur.
+
 
 ## 10. Base Supabase
 

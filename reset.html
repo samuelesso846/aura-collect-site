@@ -47,7 +47,7 @@
     <div class="msg" id="msg"></div>
   </form>
 
-  <p class="alt">Le lien a expiré ? <a href="commander.html">Demandez-en un nouveau</a>.</p>
+  <p class="alt">Le lien a expiré ? <a href="app.html">Demandez-en un nouveau</a>.</p>
 </div>
 
 <script>
@@ -60,7 +60,7 @@
     msg.textContent = texte;
   }
 
-  if (!token) dit('Lien incomplet. Ouvrez le lien reçu par email.', 'err');
+  if (!token) dit('Lien incomplet. Ouvrez le lien transmis par votre cabinet.', 'err');
 
   document.getElementById('form').addEventListener('submit', function (e) {
     e.preventDefault();
