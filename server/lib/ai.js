@@ -38,7 +38,7 @@ Schéma exact :
 Règles :
 - type_conforme = false si le document n'est pas la pièce demandée (ex. une facture d'électricité à la place d'un avis d'imposition).
 - lisible = false si le document est flou, coupé, trop sombre ou illisible.
-- date_valide = false si la date du document ne respecte pas la règle de validité fournie. Si aucune date n'est visible, mets date_document à null et date_valide à false.
+- date_valide ne sert que si la règle de validité porte sur une période (par exemple « moins de 3 mois », « exercice concerné », « en cours de validité »). Dans ce cas, date_valide = false si la date ne respecte pas la règle ; si aucune date n'est visible, mets date_document à null et date_valide à false. Si la règle ne porte pas sur une date (par exemple « toutes les pages », « signé », « lisible »), mets date_valide à true et ne refuse jamais la pièce pour une date absente.
 - motif : explique au client ce qu'il doit faire, en une phrase, sans jargon. Si tout est bon, dis simplement que le document est accepté.
 - confiance : entre 0 et 1, ta certitude globale.
 - Une pièce générique ("Première pièce", "Deuxième pièce", règle « selon vos règles ») n'impose aucune nature : type_conforme vaut true dès que l'image contient un document, et l'absence de date ne rend pas la pièce invalide.
@@ -57,6 +57,19 @@ function isGenericPiece(piece) {
   return GENERIC_LABEL.test(label) || GENERIC_RULE.test(rule);
 }
 
+/* Toutes les règles d'un modèle n'imposent pas une date. « toutes les pages »,
+   « signé », « lisible », « au nom de la société » ne disent rien du temps : une
+   facture d'achat ou un bail signé sans date lisible reste une pièce valable.
+   Seules les règles qui expriment une période (« moins de 3 mois », « exercice
+   concerné », « les 4 trimestres », « N-1 », « en cours de validité ») autorisent
+   un refus pour date absente ou hors période. Sans cette distinction, chaque
+   reçu manuscrit ou attestation non datée était refusé à tort. */
+const REGLE_DATEE = /moins de|derniers?\b|derni[èe]res?\b|exercice|trimestre|ann[ée]e|n-\d|validit[ée]|p[ée]riode|r[ée]cent|\d+\s*mois|20\d\d/i;
+
+function exigeDate(rule) {
+  return REGLE_DATEE.test(String(rule || ''));
+}
+
 function userPrompt(piece, templateName) {
   const today = new Date().toISOString().slice(0, 10);
   const lines = [
@@ -65,6 +78,13 @@ function userPrompt(piece, templateName) {
     `Pièce attendue : « ${piece.label} ».`,
     `Règle de validité : ${piece.rule}.`
   ];
+  if (exigeDate(piece.rule)) {
+    lines.push("Cette règle porte sur une période : tu dois vérifier la date du document. " +
+      "Si la date n'est pas lisible, mets date_document à null et date_valide à false.");
+  } else {
+    lines.push("Cette règle ne porte pas sur une date : n'utilise pas l'absence de date comme motif de refus. " +
+      "Mets date_valide à true même si aucune date n'est visible, et laisse date_document à null dans ce cas.");
+  }
   if (isGenericPiece(piece)) {
     lines.push("Cette pièce n'impose aucune nature précise : n'évalue pas la conformité du type. " +
       "Mets type_conforme à true dès que l'image montre un document, même si sa nature ne peut pas être déterminée. " +
@@ -141,7 +161,7 @@ async function callGroq(content, attempt) {
   }
 }
 
-function toVerdict(json) {
+function toVerdict(json, piece) {
   if (!json || typeof json !== 'object') {
     return {
       status: 'review',
@@ -154,7 +174,11 @@ function toVerdict(json) {
   const reason = typeof json.motif === 'string' ? json.motif.trim() : '';
   const typeOk = json.type_conforme === true;
   const lisible = json.lisible === true;
-  const dateOk = json.date_valide !== false;
+  /* Le refus pour date n'est appliqué que si la règle de la pièce porte vraiment
+     sur une période : sinon une facture ou un bail sans date lisible serait
+     rejeté alors que le cabinet ne l'a jamais demandé. */
+  const dateRequise = exigeDate(piece && piece.rule);
+  const dateOk = !dateRequise || json.date_valide !== false;
   const date = typeof json.date_document === 'string' ? json.date_document : '';
 
   /* La phrase canonique reste en tête : c'est elle qui permet de savoir, plus
@@ -311,7 +335,7 @@ async function validate(file, piece, templateName) {
 
     const { text } = await callGroq(content);
     const json = parseJson(text);
-    const verdict = toVerdict(json);
+    const verdict = toVerdict(json, piece);
 
     return {
       ...base,
