@@ -1,0 +1,12 @@
+# Aura Collect : seules les pages publiques sont à référencer.
+# Les liens de dépôt clients (/p/…), l'application et l'API ne doivent jamais être indexés.
+User-agent: *
+Disallow: /api/
+Disallow: /app
+Disallow: /p/
+Disallow: /operateur
+Disallow: /reset
+Disallow: /invitation
+Disallow: /abonnement
+Disallow: /equipe
+Allow: /

@@ -34,6 +34,16 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
+/* En-têtes de sécurité sur toutes les réponses. Pas de CSP ici : les pages utilisent des
+   scripts et styles en ligne, une CSP stricte les casserait sans test navigateur. */
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (process.env.NODE_ENV === 'production') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
+  next();
+});
+
 /* ---------- webhook FedaPay ----------
    Monté avant express.json() : la signature porte sur le corps brut, un JSON déjà parsé ne
    permet plus de la vérifier. Réponse 2xx immédiate, traitement en arrière-plan. */
