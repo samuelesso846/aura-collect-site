@@ -66,8 +66,37 @@
     '</div>';
   }
 
+  /* Le mode guidé : ce que la pièce est, où l'obtenir, ce qui est accepté,
+     ce qui fait renvoyer. Contenu écrit côté serveur, jamais généré ici. */
+  function guideBlock(p) {
+    var g = p.guide;
+    if (!g || p.status === 'ok') return '';
+
+    function list(items) {
+      return '<ul>' + items.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    }
+
+    var body = '';
+    if (g.quoi) body += '<p>' + esc(g.quoi) + '</p>';
+    if (g.ou) body += '<p><b>Où l\'obtenir :</b> ' + esc(g.ou) + '</p>';
+
+    var cols = '';
+    if (g.accepte && g.accepte.length) cols += '<div><b>Ce qui est accepté</b>' + list(g.accepte) + '</div>';
+    if (g.refuse && g.refuse.length) cols += '<div><b>Ce qui fait renvoyer</b>' + list(g.refuse) + '</div>';
+    if (cols) body += '<div class="g__cols">' + cols + '</div>';
+
+    if (g.photo) body += '<p><b>Comment le prendre :</b> ' + esc(g.photo) + '</p>';
+    if (g.substituts && g.substituts.length) body += '<p><b>Vous ne l\'avez pas ?</b> ' + esc(g.substituts.join(' · ')) + '</p>';
+
+    return '<details class="upload__guide"' + (p.status === 'ko' ? ' open' : '') + '>' +
+      '<summary>Comment l\'obtenir ?</summary>' +
+      '<div class="g__in">' + body + '</div>' +
+    '</details>';
+  }
+
   function pieceRow(p, i) {
     var cls = p.status === 'ok' ? 'is-done' : p.status === 'ko' ? 'is-ko' : p.status === 'review' ? 'is-review' : '';
+    if (p.guide && p.status !== 'ok') cls += ' has-guide';
     var ico = p.status === 'ok' ? ICON.check : p.status === 'ko' ? ICON.cross : ICON.clock;
     var sub, action;
 
@@ -91,7 +120,7 @@
     return '<div class="upload ' + cls + '" id="row-' + i + '">' +
       '<div class="upload__ico">' + ico + '</div>' +
       '<div class="upload__body"><div class="upload__n">' + esc(p.label) + '</div>' +
-        '<div class="upload__s">' + sub + '</div></div>' +
+        '<div class="upload__s">' + sub + '</div>' + guideBlock(p) + '</div>' +
       '<div class="upload__act">' + action + '</div>' +
     '</div>';
   }

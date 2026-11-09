@@ -574,6 +574,45 @@ async function listOutbox(limit = 50) {
   return rows;
 }
 
+/* Aura Relation — messages de fin de dossier. Le statut dit ce que le cabinet
+   a fait (préparé, ouvert, déclaré envoyé), jamais ce que le réseau a fait. */
+async function addRelationMessage(m) {
+  const { rows } = await pool.query(
+    `insert into aura.relation_messages
+       (cabinet_id, dossier_id, client, channel, template_key, body, status, actor_email, actor_name)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     returning id, status, created_at`,
+    [
+      m.cabinetId, m.dossierId, m.client || '', m.channel, m.templateKey || '',
+      m.body, m.status, m.actorEmail || null, m.actorName || null
+    ]
+  );
+  return rows[0];
+}
+
+async function listRelationMessages(dossierId, cabinetId, limit = 20) {
+  const { rows } = await pool.query(
+    `select id, client, channel, template_key, body, status, actor_name, created_at, updated_at
+       from aura.relation_messages
+      where dossier_id = $1 and cabinet_id = $2
+      order by created_at desc
+      limit $3`,
+    [dossierId, cabinetId, limit]
+  );
+  return rows;
+}
+
+async function setRelationStatus(id, dossierId, cabinetId, status) {
+  const { rows } = await pool.query(
+    `update aura.relation_messages
+        set status = $4, updated_at = now()
+      where id = $1 and dossier_id = $2 and cabinet_id = $3
+      returning id, status, updated_at`,
+    [id, dossierId, cabinetId, status]
+  );
+  return rows[0] || null;
+}
+
 /* Demandes entrantes du formulaire de contact. Conservées même si l'envoi
    d'email n'est pas configuré : c'est la seule trace fiable d'un prospect. */
 async function addLead(lead) {
@@ -769,6 +808,7 @@ module.exports = {
   mapClient, listClients, getClient, ensureClient,
   listDossiers, countDossiers, getDossier, getDossierById, getByToken, insertDossier,
   updatePiece, touch, saveFile, readFile, addOutbox, listOutbox, healthy, sealDossier,
+  addRelationMessage, listRelationMessages, setRelationStatus,
   addLead, listLeads, setPassword, addDecision, listDecisions,
   listUsers, countUsers, findUserByEmail, getUser, inviteUser, getUserByInvite,
   activateUser, revokeUser, touchUserLogin, setDomain, getDomain, cabinetByDomain

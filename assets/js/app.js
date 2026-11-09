@@ -285,6 +285,116 @@
     }
   }
 
+  /* ── Aura Relation : le cabinet prépare, relit, et envoie lui-même. ────── */
+  var REL_STATUS = {
+    prepare: 'Préparé',
+    ouvert: 'Ouvert dans l’application',
+    envoye: 'Déclaré envoyé'
+  };
+
+  async function loadRelation(d) {
+    var box = $('#relationBox');
+    if (!box) return;
+
+    var r;
+    try { r = await api('/api/dossiers/' + d.id + '/relation'); }
+    catch (e) { box.textContent = e.message; return; }
+
+    if (!r.available) {
+      box.innerHTML = '<span style="color:#8A6A00">' + esc(r.reason) + '</span>' +
+        (r.historyWarning ? '<div style="margin-top:6px;color:#8A6A00">' + esc(r.historyWarning) + '</div>' : '');
+      return;
+    }
+
+    var m = r.message;
+    var hist = (r.history || []).map(function (h) {
+      return '<div class="rel-h">' +
+        '<span class="rel-h__s rel-h__s--' + esc(h.status) + '">' + esc(REL_STATUS[h.status] || h.status) + '</span>' +
+        '<span class="rel-h__d">' + new Date(h.created_at).toLocaleString('fr-FR') + ' · ' + esc(h.channel) +
+        (h.actor_name ? ' · ' + esc(h.actor_name) : '') + '</span>' +
+        (h.status !== 'envoye'
+          ? '<button class="btn btn--ghost btn--sm rel-h__b" data-sent="' + h.id + '" type="button">Déclarer envoyé</button>'
+          : '') +
+        '</div>';
+    }).join('');
+
+    box.innerHTML =
+      '<div class="rel-g">' + esc(m.garde) + '</div>' +
+      '<textarea id="relBody" class="rel-ta" rows="9" spellcheck="true">' + esc(m.body) + '</textarea>' +
+      '<div class="rel-row">' +
+        '<input id="relEch" class="rel-in" type="text" placeholder="Échéance à insérer (ex. 15 décembre — TVA)">' +
+        '<button class="btn btn--ghost btn--sm" id="relIns" type="button">Insérer</button>' +
+      '</div>' +
+      '<div class="rel-row">' +
+        '<select id="relChan" class="rel-in">' +
+          '<option value="whatsapp">WhatsApp</option>' +
+          '<option value="sms">SMS</option>' +
+          '<option value="email"' + (m.clientEmail ? '' : ' disabled') + '>E-mail' +
+            (m.clientEmail ? ' — ' + esc(m.clientEmail) : ' — adresse absente du dossier') + '</option>' +
+        '</select>' +
+        '<button class="btn btn--primary btn--sm" id="relOpen" type="button">Ouvrir le message</button>' +
+      '</div>' +
+      '<p class="detail-note" id="relNote" style="margin-top:8px">Aucun envoi automatique : le message s’ouvre dans votre application et c’est vous qui appuyez sur envoyer.</p>' +
+      '<div class="drawer__label" style="margin-top:14px">Historique relationnel</div>' +
+      (hist || '<div class="detail-note">Aucun message préparé pour ce dossier.</div>');
+
+    var ta = $('#relBody');
+    var chan = $('#relChan');
+
+    /* Déclaration d'envoi : c'est le cabinet qui l'affirme, pas la plateforme.
+       On n'écrit jamais « livré » ni « lu » — nous ne le savons pas. */
+    $$('[data-sent]', box).forEach(function (b) {
+      b.addEventListener('click', async function () {
+        b.disabled = true;
+        try {
+          await api('/api/dossiers/' + d.id + '/relation/' + b.dataset.sent + '/status', {
+            method: 'POST', body: { status: 'envoye' }
+          });
+          toast('Marqué comme envoyé');
+          loadRelation(d);
+        } catch (e) { toast(e.message, true); b.disabled = false; }
+      });
+    });
+
+    $('#relIns').addEventListener('click', function () {
+      var v = ($('#relEch').value || '').trim();
+      if (!v) { toast('Renseignez d’abord l’échéance'); return; }
+      var line = '\n\nProchaine échéance : ' + v + '.';
+      var p = typeof ta.selectionStart === 'number' ? ta.selectionStart : ta.value.length;
+      ta.value = ta.value.slice(0, p) + line + ta.value.slice(p);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = p + line.length;
+    });
+
+    $('#relOpen').addEventListener('click', async function () {
+      var body = (ta.value || '').trim();
+      if (!body) { toast('Le message est vide', true); return; }
+
+      var channel = chan.value;
+      var url;
+      if (channel === 'whatsapp') {
+        url = 'https://wa.me/?text=' + encodeURIComponent(body);
+      } else if (channel === 'sms') {
+        url = 'sms:?&body=' + encodeURIComponent(body);
+      } else {
+        if (!m.clientEmail) { toast('Aucune adresse e-mail dans ce dossier', true); return; }
+        url = 'mailto:' + m.clientEmail +
+          '?subject=' + encodeURIComponent('Votre dossier — ' + (state.cabinet || '')) +
+          '&body=' + encodeURIComponent(body);
+      }
+
+      window.open(url, '_blank', 'noopener');
+      try {
+        await api('/api/dossiers/' + d.id + '/relation', {
+          method: 'POST',
+          body: { body: body, channel: channel, templateKey: m.family, status: 'ouvert' }
+        });
+        toast('Message enregistré dans l’historique');
+        loadRelation(d);
+      } catch (e) { toast(e.message, true); }
+    });
+  }
+
   function openDrawer(id) {
     var d = state.dossiers.filter(function (x) { return x.id === id; })[0];
     if (!d) return;
@@ -354,9 +464,14 @@
       '<div class="drawer__section">' +
         '<div class="drawer__label">Journal des décisions</div>' +
         '<div id="journalBox" class="detail-note" style="margin-top:6px">Chargement…</div>' +
-      '</div>' + sealHtml;
+      '</div>' + sealHtml +
+      (sealed
+        ? '<div class="drawer__section"><div class="drawer__label">Relation client</div>' +
+          '<div id="relationBox" class="detail-note" style="margin-top:6px">Chargement…</div></div>'
+        : '');
 
     loadJournal(d.id);
+    if (sealed) loadRelation(d);
 
     $('#copyLink').addEventListener('click', function () {
       if (navigator.clipboard) navigator.clipboard.writeText(d.link).then(function () { toast('Lien copié'); });

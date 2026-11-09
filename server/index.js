@@ -15,6 +15,8 @@ const fedapay = require('./lib/fedapay');
 const plans = require('./lib/plans');
 const billing = require('./lib/billing');
 const storage = require('./lib/storage');
+const guide = require('./lib/guide');
+const relation = require('./lib/relation');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.PORT || 8788);
@@ -272,7 +274,8 @@ function publicDossier(d) {
       status: p.status,
       reason: p.reason || '',
       filename: p.filename || '',
-      dateDocument: p.dateDocument || ''
+      dateDocument: p.dateDocument || '',
+      guide: guide.forPiece(p.key, p.label)
     }))
   };
 }
@@ -1412,6 +1415,121 @@ app.post('/api/dossiers/:id/seal', requireAuth, async (req, res, next) => {
       actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
     });
     res.json({ hash, sealedAt: manifest.sealedAt });
+  } catch (err) { next(err); }
+});
+
+/* ── Aura Relation ────────────────────────────────────────────────────────
+   Prépare un message de fin de dossier. N'envoie jamais rien : le cabinet
+   ouvre son propre canal (WhatsApp, SMS, e-mail) et c'est lui qui appuie.
+   La plateforme ne prétend donc ni remise ni lecture. */
+
+app.get('/api/dossiers/:id/relation', requireAuth, async (req, res, next) => {
+  try {
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
+    if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
+
+    let history = [];
+    let historyWarning = '';
+    try {
+      history = await store.listRelationMessages(dossier.id, req.cabinetId);
+    } catch (err) {
+      /* Table absente : l'historique est indisponible, le reste fonctionne. */
+      historyWarning = 'Historique indisponible : la migration relation n’a pas encore été exécutée.';
+      console.error('[relation] historique illisible :', err.message);
+    }
+
+    const dispo = relation.available(dossier);
+    if (!dispo.ok) {
+      return res.json({ available: false, reason: dispo.reason, history, historyWarning });
+    }
+
+    const auteur = await actorOf(req);
+    const message = relation.build({
+      dossier,
+      templateName: store.templateById(dossier.template).name,
+      cabinetName: await cabinetNameOf(dossier.cabinetId),
+      actor: auteur
+    });
+    if (!message.ok) {
+      return res.json({ available: false, reason: message.reason, history, historyWarning });
+    }
+
+    res.json({
+      available: true,
+      dossier: { id: dossier.id, client: dossier.client, sealedAt: dossier.sealedAt },
+      message,
+      channels: relation.CHANNELS,
+      history,
+      historyWarning
+    });
+  } catch (err) { next(err); }
+});
+
+app.post('/api/dossiers/:id/relation', requireAuth, async (req, res, next) => {
+  try {
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
+    if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
+
+    const dispo = relation.available(dossier);
+    if (!dispo.ok) return res.status(409).json({ error: dispo.reason });
+
+    const body = String((req.body && req.body.body) || '').trim();
+    if (!body) return res.status(400).json({ error: 'Le message est vide.' });
+    if (body.length > 4000) return res.status(400).json({ error: 'Message trop long (4000 caractères maximum).' });
+
+    const channel = relation.CHANNELS.includes(req.body && req.body.channel)
+      ? req.body.channel : 'whatsapp';
+    const status = ['prepare', 'ouvert'].includes(req.body && req.body.status)
+      ? req.body.status : 'prepare';
+
+    const auteur = await actorOf(req);
+    const row = await store.addRelationMessage({
+      cabinetId: req.cabinetId,
+      dossierId: dossier.id,
+      client: dossier.client,
+      channel,
+      templateKey: String((req.body && req.body.templateKey) || ''),
+      body,
+      status,
+      actorEmail: auteur.email,
+      actorName: auteur.name
+    });
+
+    await trace({
+      cabinetId: req.cabinetId, dossierId: dossier.id,
+      action: 'relation_message', status,
+      reason: 'Message de fin préparé (' + channel + ')',
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
+
+    res.json({ ok: true, message: row });
+  } catch (err) { next(err); }
+});
+
+app.post('/api/dossiers/:id/relation/:mid/status', requireAuth, async (req, res, next) => {
+  try {
+    const dossier = await store.getDossier(req.params.id, req.cabinetId);
+    if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
+
+    const status = req.body && req.body.status;
+    if (!['prepare', 'ouvert', 'envoye'].includes(status)) {
+      return res.status(400).json({ error: 'Statut inconnu.' });
+    }
+    const mid = Number(req.params.mid);
+    if (!Number.isInteger(mid) || mid <= 0) return res.status(400).json({ error: 'Identifiant invalide.' });
+
+    const row = await store.setRelationStatus(mid, dossier.id, req.cabinetId, status);
+    if (!row) return res.status(404).json({ error: 'Message introuvable.' });
+
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: dossier.id,
+      action: 'relation_message', status,
+      reason: 'Message de fin — statut déclaré par le cabinet',
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
+
+    res.json({ ok: true, message: row });
   } catch (err) { next(err); }
 });
 
