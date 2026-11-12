@@ -56,10 +56,18 @@
   <div class="container contact-grid">
     <div class="card-form" id="ecrire">
       <h3>Nous écrire</h3>
-      <p>Pas de formulaire à remplir, pas de rappel commercial. Un email, et une réponse personnelle.</p>
-      <p style="margin-top:18px">
-        <a class="btn btn--primary btn--block mailLink" href="#" title="Ouvre votre logiciel de messagerie">Écrire à l'équipe</a>
-      </p>
+      <p>Laissez votre numéro WhatsApp ou votre email : nous vous répondons personnellement.</p>
+      <form id="contactForm" novalidate>
+        <div class="field"><label for="cPrenom">Prénom</label><input id="cPrenom" name="prenom" autocomplete="given-name" required></div>
+        <div class="field"><label for="cNom">Nom</label><input id="cNom" name="nom" autocomplete="family-name" required></div>
+        <div class="field"><label for="cTel">Numéro WhatsApp</label><input id="cTel" name="telephone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+228 …"></div>
+        <div class="field"><label for="cEmail">Email <small style="font-weight:400">(si vous préférez)</small></label><input id="cEmail" name="email" type="email" autocomplete="email"></div>
+        <div class="field"><label for="cStructure">Votre cabinet</label><input id="cStructure" name="structure" autocomplete="organization"></div>
+        <div class="field"><label for="cVolume">Dossiers clients par mois (environ)</label><input id="cVolume" name="volume" inputmode="numeric"></div>
+        <div class="field"><label for="cMsg">Votre question ou les pièces que vous réclamez le plus</label><textarea id="cMsg" name="message"></textarea></div>
+        <button class="btn btn--primary btn--block" type="submit" id="cSend">Envoyer</button>
+        <p id="cStatus" role="status" style="font-size:13px;margin-top:14px;line-height:1.5"></p>
+      </form>
       <p style="font-size:12px;color:var(--muted);margin-top:16px;line-height:1.6">
         Pour ouvrir un espace, utilisez le bouton « Créer un compte » en haut de page ou la page Tarifs. Ici, c'est uniquement pour nous écrire.
       </p>
@@ -169,6 +177,26 @@
       window.location.href = 'mailto:' + ['samuelesso846', 'gmail.com'].join('@');
     });
   }
+})();
+</script>
+
+<script>
+(function () {
+  var f = document.getElementById('contactForm'); if (!f) return;
+  var st = document.getElementById('cStatus'), btn = document.getElementById('cSend');
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var d = {}; new FormData(f).forEach(function (v, k) { d[k] = v; });
+    st.style.color = ''; st.textContent = 'Envoi en cours…'; btn.disabled = true;
+    fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (x.ok && x.j.ok) { f.reset(); st.style.color = '#0E8F6B'; st.textContent = 'Message reçu. Nous vous répondons personnellement.'; }
+        else { st.style.color = '#C0392B'; st.textContent = (x.j && x.j.error) || 'Envoi impossible pour le moment.'; }
+      })
+      .catch(function () { st.style.color = '#C0392B'; st.textContent = 'Connexion impossible. Réessayez dans un instant.'; })
+      .then(function () { btn.disabled = false; });
+  });
 })();
 </script>
 </body>

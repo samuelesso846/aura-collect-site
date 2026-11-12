@@ -21,13 +21,18 @@ const relation = require('./lib/relation');
 const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.PORT || 8788);
 const CABINET = process.env.CABINET_NAME || 'Cabinet Lemaire & Associés';
-const PASSWORD = process.env.CABINET_PASSWORD || 'aura-demo';
-const SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
+const IS_PROD = process.env.NODE_ENV === 'production' || !!process.env.RENDER;
+/* En production, aucun secret de démonstration n'est jamais accepté : sans
+   CABINET_PASSWORD l'accès historique est fermé, et sans SESSION_SECRET un secret
+   aléatoire est tiré au démarrage (les sessions ne survivent alors pas à un
+   redémarrage, mais personne ne peut en forger une). */
+const PASSWORD = process.env.CABINET_PASSWORD || (IS_PROD ? null : 'aura-demo');
+const SECRET = process.env.SESSION_SECRET || (IS_PROD ? crypto.randomBytes(32).toString('hex') : 'dev-secret-change-me');
 const DEFAULT_BASE = `http://localhost:${PORT}`;
 const MAX_MB = 15;
 
-if (!process.env.CABINET_PASSWORD) console.warn('[aura] CABINET_PASSWORD absent : mot de passe de démonstration « aura-demo ».');
-if (!process.env.SESSION_SECRET) console.warn('[aura] SESSION_SECRET absent : secret de développement utilisé.');
+if (!process.env.CABINET_PASSWORD) console.warn(IS_PROD ? '[aura] CABINET_PASSWORD absent : accès historique par mot de passe partagé fermé.' : '[aura] CABINET_PASSWORD absent : mot de passe de démonstration « aura-demo ».');
+if (!process.env.SESSION_SECRET) console.warn(IS_PROD ? '[aura] SESSION_SECRET absent : secret aléatoire tiré au démarrage (sessions perdues à chaque redémarrage). À définir dans Render.' : '[aura] SESSION_SECRET absent : secret de développement utilisé.');
 if (!process.env.DATABASE_URL) console.warn('[aura] DATABASE_URL absent : la base Supabase est requise.');
 
 const app = express();
@@ -457,6 +462,31 @@ function cabinetDossier(d, base) {
   };
 }
 
+/* Un lien de dépôt est public : sans plafond, quiconque le détient pourrait
+   enchaîner les envois et faire payer autant d'appels au modèle. */
+const uploadHits = new Map();
+function uploadAllowed(key, max, windowMs) {
+  const now = Date.now();
+  const rec = uploadHits.get(key);
+  if (!rec || now - rec.since > windowMs) { uploadHits.set(key, { since: now, n: 1 }); return true; }
+  rec.n += 1;
+  return rec.n <= max;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of uploadHits) if (now - v.since > 3600 * 1000) uploadHits.delete(k);
+}, 600 * 1000).unref();
+
+/* Le type annoncé par le navigateur ne prouve rien : on lit les premiers octets. */
+function sniffMime(buf) {
+  if (!buf || buf.length < 12) return null;
+  if (buf.slice(0, 4).toString('latin1') === '%PDF') return 'application/pdf';
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+  if (buf[0] === 0x89 && buf.slice(1, 4).toString('latin1') === 'PNG') return 'image/png';
+  if (buf.slice(0, 4).toString('latin1') === 'RIFF' && buf.slice(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
+  return null;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_MB * 1024 * 1024, files: 1 },
@@ -515,9 +545,11 @@ app.post('/api/login', async (req, res, next) => {
     } else if (cabinet.password_hash) {
       ok = verifyPassword(given, cabinet.password_hash);
     } else {
-      const a = Buffer.from(given);
-      const b = Buffer.from(PASSWORD);
-      ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+      if (PASSWORD) {
+        const a = Buffer.from(given);
+        const b = Buffer.from(PASSWORD);
+        ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+      }
     }
     if (!ok) {
       loginFail('ip', ip, LOGIN_MAX_IP);
@@ -1083,6 +1115,7 @@ app.post('/api/contact', async (req, res) => {
       prenom: clean(b.prenom, 80),
       nom: clean(b.nom, 80),
       email: clean(b.email, 160).toLowerCase(),
+      telephone: clean(b.telephone, 30),
       structure: clean(b.structure, 160),
       metier: clean(b.metier, 60),
       volume: clean(b.volume, 60),
@@ -1095,9 +1128,13 @@ app.post('/api/contact', async (req, res) => {
     if (!lead.prenom || !lead.nom) {
       return res.status(400).json({ ok: false, error: 'Indiquez votre prénom et votre nom.' });
     }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(lead.email)) {
-      return res.status(400).json({ ok: false, error: 'Adresse email invalide.' });
+    const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(lead.email);
+    const telOk = lead.telephone.replace(/\D/g, '').length >= 8;
+    if (!emailOk && !telOk) {
+      return res.status(400).json({ ok: false, error: 'Indiquez un numéro WhatsApp ou une adresse email pour que nous puissions vous répondre.' });
     }
+    if (!emailOk) lead.email = '';
+    if (telOk) lead.message = ('WhatsApp : ' + lead.telephone + '\n' + lead.message).slice(0, 4000);
 
     /* Deux filets successifs : la table dédiée, puis le journal d'envoi qui
        existe déjà. Une demande ne doit jamais repartir sans trace, même si
@@ -1619,6 +1656,12 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
       return res.status(409).json({ error: 'Ce dossier a été scellé : il n\'accepte plus de nouvelle pièce.' });
     }
     if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+    if (!uploadAllowed('dossier|' + dossier.id, 60, 3600 * 1000) || !uploadAllowed('ip|' + (req.ip || 'x'), 150, 3600 * 1000)) {
+      return res.status(429).json({ error: 'Trop d\'envois en peu de temps. Réessayez dans quelques minutes.' });
+    }
+    const vrai = sniffMime(req.file.buffer);
+    if (!vrai) return res.status(415).json({ error: 'Ce fichier n\'est pas lisible comme un PDF ou une image (JPEG, PNG, WEBP).' });
+    req.file.mimetype = vrai;
 
     const piece = dossier.pieces.find((p) => p.key === req.params.key);
     if (!piece) return res.status(404).json({ error: 'Pièce inconnue.' });
