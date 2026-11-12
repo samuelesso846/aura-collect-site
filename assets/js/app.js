@@ -78,6 +78,7 @@
     $('#loginView').hidden = false;
     $('#dashView').hidden = true;
     $('#logoutBtn').hidden = true;
+    document.body.classList.add('is-login');
     setTimeout(function () { var p = $('#password'); if (p) p.focus(); }, 50);
   }
 
@@ -86,6 +87,7 @@
     $('#loginView').hidden = true;
     $('#dashView').hidden = false;
     $('#logoutBtn').hidden = false;
+    document.body.classList.remove('is-login');
   }
 
   /* ---------- rendu ---------- */

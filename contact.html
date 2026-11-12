@@ -10,6 +10,7 @@
 <link rel="preload" href="/assets/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/css/fonts.css">
 <link rel="stylesheet" href="assets/css/aura.css?v=11">
+<style>.frow{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}@media(max-width:560px){.frow{grid-template-columns:1fr}}</style>
 </head>
 <body>
 
@@ -58,12 +59,9 @@
       <h3>Nous écrire</h3>
       <p>Laissez votre numéro WhatsApp ou votre email : nous vous répondons personnellement.</p>
       <form id="contactForm" novalidate>
-        <div class="field"><label for="cPrenom">Prénom</label><input id="cPrenom" name="prenom" autocomplete="given-name" required></div>
-        <div class="field"><label for="cNom">Nom</label><input id="cNom" name="nom" autocomplete="family-name" required></div>
-        <div class="field"><label for="cTel">Numéro WhatsApp</label><input id="cTel" name="telephone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+228 …"></div>
-        <div class="field"><label for="cEmail">Email <small style="font-weight:400">(si vous préférez)</small></label><input id="cEmail" name="email" type="email" autocomplete="email"></div>
-        <div class="field"><label for="cStructure">Votre cabinet</label><input id="cStructure" name="structure" autocomplete="organization"></div>
-        <div class="field"><label for="cVolume">Dossiers clients par mois (environ)</label><input id="cVolume" name="volume" inputmode="numeric"></div>
+        <div class="frow"><div class="field"><label for="cPrenom">Prénom</label><input id="cPrenom" name="prenom" autocomplete="given-name" required></div><div class="field"><label for="cNom">Nom</label><input id="cNom" name="nom" autocomplete="family-name" required></div></div>
+        <div class="frow"><div class="field"><label for="cTel">Numéro WhatsApp</label><input id="cTel" name="telephone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+228 …"></div><div class="field"><label for="cEmail">Email <small style="font-weight:400">(si vous préférez)</small></label><input id="cEmail" name="email" type="email" autocomplete="email"></div></div>
+        <div class="frow"><div class="field"><label for="cStructure">Votre cabinet</label><input id="cStructure" name="structure" autocomplete="organization"></div><div class="field"><label for="cVolume">Dossiers clients par mois (environ)</label><input id="cVolume" name="volume" inputmode="numeric"></div></div>
         <div class="field"><label for="cMsg">Votre question ou les pièces que vous réclamez le plus</label><textarea id="cMsg" name="message"></textarea></div>
         <button class="btn btn--primary btn--block" type="submit" id="cSend">Envoyer</button>
         <p id="cStatus" role="status" style="font-size:13px;margin-top:14px;line-height:1.5"></p>
@@ -90,7 +88,7 @@
 
       <div style="margin-top:16px;display:flex;gap:10px;align-items:flex-start;font-size:11.5px;color:var(--muted);line-height:1.5">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:0 0 16px;margin-top:1px;color:var(--green)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <span>Les pièces transmises pendant une démo sont supprimées à la fin de la session, sur simple demande.</span>
+        <span>Sur simple demande, nous supprimons les pièces transmises pendant une démo.</span>
       </div>
     </div>
   </div>

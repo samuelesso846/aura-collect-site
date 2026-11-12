@@ -103,6 +103,16 @@
 
 [hidden]{display:none!important}
 
+/* Écran de connexion : seuls les liens publics ont du sens avant d'être identifié. */
+.is-login .ai-pill,.is-login .admin-top__right a[href="equipe.html"],.is-login .admin-top__right a[href="abonnement"]{display:none}
+@media (max-width:640px){
+  .admin-top{padding:0 14px;gap:10px}
+  .admin-top__right{gap:6px;min-width:0;max-width:calc(100vw - 150px);overflow-x:auto;scrollbar-width:none}
+  .admin-top__right::-webkit-scrollbar{display:none}
+  .admin-top__right .btn{flex:0 0 auto}
+  .ai-pill span{display:none}
+}
+
 /* verdict + scellement */
 .verdict-box{border-radius:12px;padding:12px 14px;margin-bottom:18px;border:1px solid}
 .verdict-box.is-ok{background:var(--green-soft);border-color:#C6EEDF}
