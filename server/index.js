@@ -1706,16 +1706,28 @@ app.get('/app', (req, res) => {
   res.sendFile(path.join(ROOT, 'app.html'));
 });
 
-app.use(express.static(ROOT, {
+/* Liste blanche : seuls les pages du site, robots.txt, sitemap.xml et /assets sont
+   servis. Le code serveur, le SQL, la configuration de déploiement et la
+   documentation interne ne sont jamais exposés. */
+const serveStatic = express.static(ROOT, {
   extensions: ['html'],
   setHeaders(res, filePath) {
     if (/\.(html|js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
   }
-}));
+});
+
+app.use((req, res, next) => {
+  const p = req.path;
+  const publicPage = /^\/(?!server\b|db\b|documents\b|node_modules\b)[a-z0-9-]+(\.html)?$/i.test(p);
+  if (p === '/' || p === '/robots.txt' || p === '/sitemap.xml' || /^\/assets\//.test(p) || publicPage) {
+    return serveStatic(req, res, next);
+  }
+  return next();
+});
 
 app.use((req, res) => {
   if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Route inconnue.' });
-  res.status(404).sendFile(path.join(ROOT, 'index.html'));
+  res.status(404).sendFile(path.join(ROOT, '404.html'));
 });
 
 /* eslint-disable no-unused-vars */
