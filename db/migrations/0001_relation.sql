@@ -27,3 +27,6 @@ alter table aura.relation_messages enable row level security;
 drop policy if exists aura_app_all on aura.relation_messages;
 create policy aura_app_all on aura.relation_messages
   for all to aura_app using (true) with check (true);
+
+grant select, insert, update, delete on aura.relation_messages to aura_app;
+grant usage, select on sequence aura.relation_messages_id_seq to aura_app;
