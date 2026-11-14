@@ -785,6 +785,9 @@ async function addDecision(e) {
 }
 
 async function listDecisions(dossierId, cabinetId) {
+  /* Sans cabinet, on ne renvoie rien : un oubli d'argument ne doit jamais exposer
+     le journal d'un autre cabinet. */
+  if (!cabinetId) return [];
   try {
     const { rows } = await pool.query(
       `select id, action, status, reason, actor_kind, actor_email, actor_name,
