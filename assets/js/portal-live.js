@@ -32,6 +32,14 @@
       '</div>';
   }
 
+  var RAISON = /^(ets|etablissements?|établissements?|sarl|sas|sa|ste|sté|société|entreprise|cabinet|boutique|groupe|pharmacie|hôtel|hotel|maison|ong|association|coopérative|cooperative)\b/i;
+  function salut(name) {
+    var n = String(name || '').trim();
+    if (!n) return '';
+    var w = n.split(/\s+/);
+    return (RAISON.test(n) || w.length >= 4) ? n : w[0];
+  }
+
   function initials(name) {
     return String(name).split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
   }
@@ -55,7 +63,7 @@
         '<span style="width:30px;height:30px;border-radius:8px;background:linear-gradient(140deg,#0B2540,#1264A3);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700">' + initials(data.cabinet) + '</span>' +
         '<span style="font-size:10.5px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--violet)">' + esc(data.cabinet) + '</span>' +
       '</div>' +
-      '<h1>Bonjour ' + esc(d.client.split(' ')[0]) + ',</h1>' +
+      '<h1>Bonjour ' + esc(salut(d.client)) + ',</h1>' +
       '<p class="portal__desc">Votre cabinet vous demande ' + p.total + ' pièces pour votre dossier « ' + esc(d.template) + ' ». Chaque document est vérifié à l\'arrivée.</p>' +
       banner +
       '<div class="progress">' +
@@ -163,67 +171,128 @@
       '<div class="done">' +
         '<div class="done__ico">' + ICON.check + '</div>' +
         '<div class="portal__hi">Dossier complet</div>' +
-        '<h1 style="margin-top:8px">Merci ' + esc(d.client.split(' ')[0]) + ', tout est là.</h1>' +
+        '<h1 style="margin-top:8px">Merci ' + esc(salut(d.client)) + ', tout est là.</h1>' +
         '<p>' + d.pieces.length + ' pièces validées pour votre dossier « ' + esc(d.template) + ' ».<br>' +
-        'Votre cabinet est prévenu : il peut télécharger l\'ensemble, déjà classé et renommé.</p>' +
+        'Vos pièces sont transmises à votre cabinet, déjà classées et renommées.</p>' +
         '<p style="font-size:11px;color:var(--muted);margin-top:24px">Vous pouvez fermer cette page.</p>' +
       '</div>';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function showAnalysis(key) {
+  function showError(key, message) {
+    var d = data && data.dossier;
+    var idx = d ? d.pieces.findIndex(function (p) { return p.key === key; }) : -1;
+    var row = document.getElementById('row-' + idx);
+    var old = document.getElementById('errBox');
+    if (old) old.remove();
+    var box = document.createElement('div');
+    box.id = 'errBox';
+    box.setAttribute('role', 'alert');
+    box.style.cssText = 'margin:8px 0 2px;background:#FFEDF1;border:1px solid #F7C5D0;color:#9B2C45;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5';
+    box.textContent = message;
+    if (row) { row.insertAdjacentElement('afterend', box); box.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    else alert(message);
+  }
+
+  function showProgress(key) {
     var d = data.dossier;
     var idx = d.pieces.findIndex(function (p) { return p.key === key; });
     var row = document.getElementById('row-' + idx);
     if (!row) return null;
+    var old = document.getElementById('errBox'); if (old) old.remove();
     var box = document.createElement('div');
     box.className = 'analysis';
     box.id = 'analysisBox';
-    box.innerHTML = '<span class="spinner"></span><div><div class="analysis__t" id="anTitle">Téléversement…</div>' +
-      '<div class="analysis__s">Le document est analysé, ne fermez pas cette page.</div></div>';
+    box.innerHTML = '<span class="spinner"></span><div><div class="analysis__t" id="anTitle">Préparation du document…</div>' +
+      '<div class="analysis__s" id="anSub">Ne fermez pas cette page.</div></div>';
     row.insertAdjacentElement('afterend', box);
+    return {
+      set: function (t, sub) {
+        var a = document.getElementById('anTitle'); if (a) a.textContent = t;
+        if (sub) { var c = document.getElementById('anSub'); if (c) c.textContent = sub; }
+      },
+      done: function () { box.remove(); }
+    };
+  }
 
-    var steps = ['Lecture du document…', 'Contrôle du type de pièce…', 'Vérification de la date…', 'Rédaction du verdict…'];
-    var i = 0;
-    var iv = setInterval(function () {
-      var el = document.getElementById('anTitle');
-      if (el && i < steps.length) el.textContent = steps[i++];
-    }, 1400);
-    return function () { clearInterval(iv); box.remove(); };
+  /* Une photo de téléphone pèse 4 à 12 Mo : sur une connexion mobile l'envoi
+     échoue ou prend plusieurs minutes. On la réduit avant l'envoi (le texte
+     reste lisible à 2 000 px) ; si le navigateur ne sait pas la relire, on
+     envoie l'original. */
+  function shrink(file) {
+    return new Promise(function (resolve) {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 700 * 1024) return resolve(file);
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var max = 2000, w = img.naturalWidth, h = img.naturalHeight;
+          var k = Math.min(1, max / Math.max(w, h));
+          var c = document.createElement('canvas');
+          c.width = Math.round(w * k); c.height = Math.round(h * k);
+          var ctx = c.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          c.toBlob(function (blob) {
+            URL.revokeObjectURL(url);
+            if (!blob || blob.size >= file.size) return resolve(file);
+            resolve(new File([blob], (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }));
+          }, 'image/jpeg', 0.85);
+        } catch (e) { URL.revokeObjectURL(url); resolve(file); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
+  function send(file, key, progress) {
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/portal/' + token + '/pieces/' + encodeURIComponent(key));
+      xhr.timeout = 150000;
+      xhr.responseType = 'json';
+      xhr.upload.onprogress = function (e) {
+        if (!e.lengthComputable) return;
+        progress.set('Envoi de votre document… ' + Math.min(99, Math.round(e.loaded / e.total * 100)) + ' %');
+      };
+      xhr.upload.onload = function () { progress.set('Vérification du document…', 'Quelques secondes. Ne fermez pas cette page.'); };
+      xhr.onload = function () {
+        var body = xhr.response || {};
+        if (xhr.status >= 200 && xhr.status < 300) return resolve(body);
+        reject(new Error(body.error || 'Dépôt impossible (code ' + xhr.status + '). Réessayez dans un instant.'));
+      };
+      xhr.onerror = function () { reject(new Error('La connexion a été interrompue : votre document n\'a pas été envoyé. Réessayez quand le réseau est meilleur.')); };
+      xhr.ontimeout = function () { reject(new Error('L\'envoi a pris trop de temps. Vérifiez votre connexion et réessayez.')); };
+      var form = new FormData();
+      form.append('file', file);
+      xhr.send(form);
+    });
   }
 
   async function upload(file, key) {
     if (!file || busy) return;
-    if (file.size > 15 * 1024 * 1024) {
-      alert('Fichier trop volumineux : 15 Mo maximum.');
+    if (file.size > 25 * 1024 * 1024) {
+      showError(key, 'Fichier trop volumineux (25 Mo maximum). Reprenez une photo ou envoyez un PDF plus léger.');
       return;
     }
 
     busy = true;
-    var stop = showAnalysis(key);
-    var form = new FormData();
-    form.append('file', file);
-
+    var progress = showProgress(key);
     try {
-      var res = await fetch('/api/portal/' + token + '/pieces/' + encodeURIComponent(key), {
-        method: 'POST',
-        body: form
-      });
-      var body = {};
-      try { body = await res.json(); } catch (_) {}
-      if (!res.ok) throw new Error(body.error || 'Dépôt impossible (' + res.status + ')');
-
+      var ready = await shrink(file);
+      if (ready.size > 15 * 1024 * 1024) throw new Error('Fichier trop volumineux (15 Mo maximum). Envoyez un PDF plus léger.');
+      var body = await send(ready, key, progress || { set: function () {} });
       data.dossier = body.dossier;
-      if (stop) stop();
+      if (progress) progress.done();
       render();
 
-      if (body.piece.status === 'ko') {
+      if (body.piece && body.piece.status === 'ko') {
         var row = document.querySelector('.upload.is-ko');
         if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     } catch (err) {
-      if (stop) stop();
-      alert(err.message);
+      if (progress) progress.done();
+      showError(key, err.message);
     } finally {
       busy = false;
     }

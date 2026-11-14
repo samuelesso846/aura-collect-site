@@ -397,6 +397,28 @@
     });
   }
 
+  /* Messages remis aux clients : ils doivent se comprendre seuls, venir d'un
+     cabinet identifiable, dire quoi faire et jusqu'à quand. */
+  var RAISON_SOCIALE = /^(ets|etablissements?|établissements?|sarl|sas|sa|ste|sté|société|entreprise|cabinet|boutique|groupe|pharmacie|hôtel|hotel|maison|ong|association|coopérative|cooperative)\b/i;
+  function waSalut(name) {
+    var n = String(name || '').trim();
+    var w = n.split(/\s+/);
+    return !n ? '' : (RAISON_SOCIALE.test(n) || w.length >= 4) ? n : w[0];
+  }
+  function waInvitation(d) {
+    var cab = state.cabinet ? ' Ici ' + state.cabinet + '.' : '';
+    return 'Bonjour ' + waSalut(d.client) + ',' + cab +
+      '\nPour constituer votre dossier, déposez vos pièces depuis votre téléphone (photo ou PDF). Pas de compte à créer :\n' +
+      d.link + '\nLe lien est valable 30 jours.';
+  }
+  function waRelance(d) {
+    var liste = (d.obstacles || []).slice(0, 6).map(function (o) { return '• ' + o.label; }).join('\n');
+    var plus = (d.obstacles || []).length > 6 ? '\n• et ' + (d.obstacles.length - 6) + ' autre(s)' : '';
+    return 'Bonjour ' + waSalut(d.client) + ',' + (state.cabinet ? ' ici ' + state.cabinet + '.' : '') +
+      '\nIl manque encore pour votre dossier :\n' + liste + plus +
+      '\nVous pouvez les déposer ici, depuis votre téléphone :\n' + d.link;
+  }
+
   function openDrawer(id) {
     var d = state.dossiers.filter(function (x) { return x.id === id; })[0];
     if (!d) return;
@@ -448,12 +470,11 @@
         '<div class="detail-actions" style="margin-top:10px">' +
           '<a class="btn btn--ghost btn--sm" href="' + esc(d.link) + '" target="_blank" rel="noopener">Ouvrir le portail</a>' +
           '<a class="btn btn--ghost btn--sm" style="border-color:#BBE5CA;color:#0A8F7C" target="_blank" rel="noopener" href="' +
-            'https://wa.me/?text=' + encodeURIComponent('Bonjour ' + d.client + ', voici le lien pour déposer vos pièces : ' + d.link) +
+            'https://wa.me/?text=' + encodeURIComponent(waInvitation(d)) +
           '">Envoyer par WhatsApp</a>' +
           (d.obstacles.length
             ? '<a class="btn btn--ghost btn--sm" target="_blank" rel="noopener" href="https://wa.me/?text=' +
-                encodeURIComponent('Bonjour ' + d.client + ', il manque encore ' + d.obstacles.length +
-                  ' pièce(s) pour compléter votre dossier : ' + d.link) + '">Relancer</a>'
+                encodeURIComponent(waRelance(d)) + '">Relancer</a>'
             : '') +
           '<a class="btn btn--ghost btn--sm" href="/api/dossiers/' + d.id + '/export">Télécharger le ZIP</a>' +
         '</div>' +
