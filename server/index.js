@@ -153,9 +153,23 @@ function readSession(req) {
   return { cabinetId, userId: userId || null };
 }
 
-function requireAuth(req, res, next) {
+/* Une session ne vaut que tant que son utilisateur est actif : retirer un accès coupe
+   la session au plus tard 20 s plus tard (cache court pour ne pas solliciter la base
+   à chaque requête). Une session sans utilisateur (accès historique) n'est pas concernée. */
+const userCache = new Map();
+async function sessionStillValid(session) {
+  if (!session || !session.userId) return Boolean(session);
+  const hit = userCache.get(session.userId);
+  if (hit && hit.until > Date.now()) return hit.ok;
+  const u = await store.getUser(session.userId, session.cabinetId);
+  const ok = Boolean(u) && u.status === 'active';
+  userCache.set(session.userId, { ok, until: Date.now() + 20000 });
+  return ok;
+}
+
+async function requireAuth(req, res, next) {
   const session = readSession(req);
-  if (!session) return res.status(401).json({ error: 'Non authentifié' });
+  if (!session || !(await sessionStillValid(session))) return res.status(401).json({ error: 'Non authentifié' });
   req.cabinetId = session.cabinetId;
   req.userId = session.userId || null;
   next();
@@ -584,7 +598,8 @@ app.get('/api/me', async (req, res) => {
   let db = false;
   try { db = await store.healthy(); } catch (err) { console.error('[db] health:', err.message); }
 
-  const session = readSession(req);
+  let session = readSession(req);
+  try { if (session && !(await sessionStillValid(session))) session = null; } catch (_) { session = null; }
   let cabinet = null;
   let access = null;
   let user = null;
@@ -804,6 +819,7 @@ app.post('/api/team/:id/revoke', requireAuth, async (req, res, next) => {
     }
     const gone = await store.revokeUser(req.params.id, req.cabinetId);
     if (!gone) return res.status(404).json({ error: 'Utilisateur introuvable ou propriétaire.' });
+    userCache.delete(String(req.params.id));
     const auteur = await actorOf(req);
     await trace({
       cabinetId: req.cabinetId, dossierId: '_cabinet', action: 'revocation',
