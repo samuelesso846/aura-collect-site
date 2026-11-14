@@ -52,7 +52,7 @@
 
     return '<div class="portal__head">' +
       '<div style="display:flex;align-items:center;gap:9px;margin-bottom:14px">' +
-        '<span style="width:30px;height:30px;border-radius:8px;background:linear-gradient(140deg,#1B1240,#6B4BFF);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700">' + initials(data.cabinet) + '</span>' +
+        '<span style="width:30px;height:30px;border-radius:8px;background:linear-gradient(140deg,#0B2540,#1264A3);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700">' + initials(data.cabinet) + '</span>' +
         '<span style="font-size:10.5px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--violet)">' + esc(data.cabinet) + '</span>' +
       '</div>' +
       '<h1>Bonjour ' + esc(d.client.split(' ')[0]) + ',</h1>' +

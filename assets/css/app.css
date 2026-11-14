@@ -50,13 +50,13 @@
 .drow:last-child{border-bottom:0}
 .drow:hover{background:#FBFAFF}
 .drow__client{display:flex;align-items:center;gap:10px;min-width:0}
-.drow__av{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:#EEEBFF;color:#4A33B8;display:grid;place-items:center;font-size:10px;font-weight:700}
+.drow__av{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:#EEEBFF;color:#0F4A78;display:grid;place-items:center;font-size:10px;font-weight:700}
 .drow__name{font-size:12.5px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .drow__mail{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .drow__tpl{font-size:11.5px;color:var(--ink-3)}
 .drow__date{font-size:10.5px;color:var(--muted)}
 .drow__bar{height:4px;background:#EEF0F6;border-radius:4px;overflow:hidden;margin-top:5px}
-.drow__bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#6B4BFF,#A98BFF)}
+.drow__bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#1264A3,#5BA3DC)}
 .drow__bar.is-ok i{background:linear-gradient(90deg,#0FC2A8,#4BE0C8)}
 .drow__bar.is-warn i{background:linear-gradient(90deg,#FF9F43,#FFC078)}
 .drow__count{font-size:10px;color:var(--muted);margin-top:4px}
@@ -86,8 +86,8 @@
 .piece-row__link{font-size:10.5px;color:var(--violet);text-decoration:underline;margin-top:3px;display:inline-block}
 .detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 .detail-note{font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:10px}
-.link-line{display:flex;align-items:center;gap:6px;background:#F7F6FF;border:1px dashed #C9BEFF;border-radius:9px;padding:9px 11px;margin-top:8px}
-.link-line code{font-family:var(--mono);font-size:10px;color:#4A33B8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.link-line{display:flex;align-items:center;gap:6px;background:#F7F6FF;border:1px dashed #CFE3F5;border-radius:9px;padding:9px 11px;margin-top:8px}
+.link-line code{font-family:var(--mono);font-size:10px;color:#0F4A78;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 
 @media (max-width:860px){
   .stats{grid-template-columns:1fr 1fr}
