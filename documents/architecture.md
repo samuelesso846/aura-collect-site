@@ -36,7 +36,7 @@ Toutes les tables ont la sécurité par ligne activée, mais la politique `aura_
 
 ### Journal des décisions
 
-`decision_log` doit être en ajout seul. Aujourd'hui le code ne fait ni mise à jour ni suppression, mais la base ne l'interdit pas. Une migration future retirera les droits `update`/`delete` au rôle applicatif (à approuver avant application).
+`decision_log` est en ajout seul : depuis la migration `0002`, le rôle applicatif n'a plus que `insert` et `select` (droits et politiques par ligne). Un test vérifie le refus de toute modification ou suppression.
 
 ## Sécurité
 
@@ -67,10 +67,10 @@ Toutes les tables ont la sécurité par ligne activée, mais la politique `aura_
 
 ## Dettes connues, par priorité
 
-1. Politiques par ligne réelles (isolation entre cabinets) + tests d'isolation.
-2. Révocation de session : un utilisateur retiré garde l'accès jusqu'à 12 h.
-3. `decision_log` réellement en ajout seul.
-4. Contraintes `CHECK` (statuts, plans) absentes.
+1. Politiques par ligne réelles en base (l'isolation entre cabinets est aujourd'hui garantie par le code **et vérifiée par 17 tests**, dont des tests HTTP à deux cabinets, mais la base elle-même ne la fait pas respecter).
+2. Contraintes `CHECK` (statuts, plans) absentes.
+
+**Réglé le 14 novembre 2026** : révocation de session (un accès retiré coupe la session immédiatement ; au plus 20 s si la révocation vient d'une autre instance), journal des décisions en ajout seul (migration `0002`, appliquée en production), tests d'isolation.
 5. Limiteur de débit en mémoire : à déplacer en base si l'on passe à plusieurs instances.
 6. Envoi d'e-mails : volontairement non modifié (file `outbox` non écoulée).
 7. Sauvegardes : vérifier la politique de sauvegarde Supabase avant le premier client réel.
