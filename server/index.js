@@ -38,6 +38,7 @@ if (!process.env.DATABASE_URL) console.warn('[aura] DATABASE_URL absent : la bas
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+app.use(require('./lib/observe').requestLogger({ quiet: (req) => req.path === '/api/health' || /^\/assets\//.test(req.path) }));
 
 /* En-têtes de sécurité sur toutes les réponses. Pas de CSP ici : les pages utilisent des
    scripts et styles en ligne, une CSP stricte les casserait sans test navigateur. */
@@ -1775,7 +1776,7 @@ app.use((req, res) => {
 
 /* eslint-disable no-unused-vars */
 app.use((err, req, res, next) => {
-  console.error('[aura]', err && err.stack ? err.stack : err);
+  console.error('[aura]', req.id || '-', err && err.stack ? err.stack : err);
   if (err && err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({ error: `Fichier trop volumineux (${MAX_MB} Mo maximum).` });
   }
@@ -1785,8 +1786,10 @@ app.use((err, req, res, next) => {
   if (err && err.message === 'FORMAT') {
     return res.status(415).json({ error: 'Format non accepté : JPEG, PNG, WEBP ou PDF.' });
   }
-  res.status(500).json({ error: 'Erreur serveur.' });
+  res.status(500).json({ error: 'Erreur serveur.', ref: req.id });
 });
+
+process.on('unhandledRejection', (r) => console.error('[aura] promesse rejetée :', r && r.stack ? r.stack : r));
 
 app.listen(PORT, () => {
   console.log(`Aura Collect — http://localhost:${PORT}`);

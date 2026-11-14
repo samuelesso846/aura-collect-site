@@ -110,7 +110,26 @@ function parseJson(text) {
 
 function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
+const breaker = require('./observe').breaker(4, 60000);
+
+/* Disjoncteur : si le fournisseur échoue 4 fois de suite, on ne le sollicite plus pendant
+   une minute ; la pièce passe aussitôt en « à contrôler » par le cabinet. */
 async function callGroq(content, attempt) {
+  if (!attempt && !breaker.allow()) {
+    const e = new Error('Service IA momentanément suspendu (échecs répétés)');
+    e.status = 503; throw e;
+  }
+  try {
+    const r = await callGroqOnce(content, attempt);
+    breaker.ok();
+    return r;
+  } catch (e) {
+    breaker.fail();
+    throw e;
+  }
+}
+
+async function callGroqOnce(content, attempt) {
   attempt = attempt || 1;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 45000);
@@ -146,7 +165,7 @@ async function callGroq(content, attempt) {
         console.warn('[ai] ' + res.status + ' — nouvelle tentative dans ' + Math.round(delay / 1000) + ' s');
         clearTimeout(timer);
         await wait(delay);
-        return callGroq(content, attempt + 1);
+        return callGroqOnce(content, attempt + 1);
       }
       const err = new Error('Groq ' + res.status + ' : ' + body.slice(0, 300));
       err.status = res.status;
