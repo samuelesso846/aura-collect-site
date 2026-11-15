@@ -29,6 +29,7 @@ Schéma exact :
   "type_conforme": true|false,
   "type_detecte": "nature du document en quelques mots",
   "lisible": true|false,
+  "extrait_lu": "passage recopié mot pour mot sur le document" | null,
   "date_document": "AAAA-MM-JJ" | null,
   "date_valide": true|false,
   "motif": "une phrase claire, en français, destinée au client",
@@ -38,6 +39,9 @@ Schéma exact :
 Règles :
 - type_conforme = false si le document n'est pas la pièce demandée (ex. une facture d'électricité à la place d'un avis d'imposition).
 - lisible = false si le document est flou, coupé, trop sombre ou illisible.
+- extrait_lu : recopie mot pour mot un passage précis du document (un montant, un numéro, un nom). Ne l'invente jamais : si le texte est trop flou, trop petit ou trop sombre pour être lu avec certitude, mets null et lisible = false.
+- Si la règle exige une signature ou un cachet (« signé », « signée », « signature », « cachet »), cherche-le explicitement sur le document. S'il est absent, type_conforme = false et le motif dit « signature manquante ». Ne suppose jamais qu'une signature existe.
+- Si la règle précise le titulaire (« au nom de la société », « à votre nom », « au nom du gérant »), lis le nom du titulaire sur le document. Un nom de personne seul (M., Mme, prénom et nom) n'est pas une société : si la règle demande une société, type_conforme = false et le motif l'explique.
 - date_valide ne sert que si la règle de validité porte sur une période (par exemple « moins de 3 mois », « exercice concerné », « en cours de validité »). Dans ce cas, date_valide = false si la date ne respecte pas la règle ; si aucune date n'est visible, mets date_document à null et date_valide à false. Si la règle ne porte pas sur une date (par exemple « toutes les pages », « signé », « lisible »), mets date_valide à true et ne refuse jamais la pièce pour une date absente.
 - motif : explique au client ce qu'il doit faire, en une phrase, sans jargon. Si tout est bon, dis simplement que le document est accepté.
 - confiance : entre 0 et 1, ta certitude globale.
@@ -218,6 +222,16 @@ function toVerdict(json, piece) {
       confidence: conf
     };
   }
+  /* Preuve de lecture : un modèle qui affirme « lisible » sans pouvoir recopier un
+     seul passage n'a probablement rien lu. On ne valide pas : le cabinet tranche. */
+  const extrait = typeof json.extrait_lu === 'string' ? json.extrait_lu.trim() : '';
+  if (extrait.length < 3) {
+    return {
+      status: 'review',
+      reason: "Le texte du document n'a pas pu être lu avec certitude. Le cabinet contrôle la pièce.",
+      confidence: conf
+    };
+  }
   if (!dateOk) {
     return {
       status: 'ko',
@@ -239,6 +253,24 @@ function toVerdict(json, piece) {
     reason: reason || 'Document conforme.',
     confidence: conf
   };
+}
+
+/* Contrôle objectif avant l'IA : une photo quasi noire ou minuscule ne se lit pas,
+   quoi qu'en dise le modèle. Seuils volontairement prudents : on ne refuse que
+   l'évidence. Luminosité moyenne sur 255 ; taille en pixels du petit côté. */
+const TROP_SOMBRE = 45;
+const TROP_PETIT = 500;
+
+async function imageQuality(buffer) {
+  try {
+    const sharp = require('sharp');
+    const meta = await sharp(buffer, { failOn: 'none' }).metadata();
+    const stats = await sharp(buffer, { failOn: 'none' }).rotate().resize({ width: 400, height: 400, fit: 'inside' }).greyscale().stats();
+    const small = Math.min(meta.width || 0, meta.height || 0);
+    return { mean: stats.channels[0].mean, small, tooDark: stats.channels[0].mean < TROP_SOMBRE, tooSmall: small > 0 && small < TROP_PETIT };
+  } catch (_) {
+    return null; // on ne bloque jamais sur une mesure impossible
+  }
 }
 
 async function shrink(buffer) {
@@ -385,6 +417,17 @@ async function validate(file, piece, templateName) {
         ];
       }
     } else {
+      const q = await imageQuality(file.buffer);
+      if (q && (q.tooDark || q.tooSmall)) {
+        return {
+          ...base,
+          status: 'ko',
+          reason: 'Le document est difficile à lire. Reprenez la photo à la lumière du jour, feuille bien à plat.' +
+            (q.tooDark ? ' La photo est trop sombre.' : " L'image est trop petite : envoyez la photo d'origine, sans la réduire."),
+          configured: true,
+          confidence: 1
+        };
+      }
       const light = await shrink(file.buffer);
       const dataUrl = `data:image/jpeg;base64,${light.toString('base64')}`;
       content = [

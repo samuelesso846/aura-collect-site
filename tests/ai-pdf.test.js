@@ -18,7 +18,7 @@ test.before(async () => {
       received.push(JSON.parse(body));
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-        type_conforme: true, type_detecte: 'relevé', lisible: true, date_document: null, date_valide: true, motif: 'ok', confiance: 0.9 }) } }] }));
+        type_conforme: true, type_detecte: 'relevé', lisible: true, extrait_lu: 'Solde final', date_document: null, date_valide: true, motif: 'ok', confiance: 0.9 }) } }] }));
     });
   });
   await new Promise((r) => server.listen(0, r));
