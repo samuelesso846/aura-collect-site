@@ -9,6 +9,14 @@ on:
         description: "Modèle Groq (vide = modèle de production)"
         required: false
         default: ""
+      ids:
+        description: "Cas à rejouer, séparés par des virgules (vide = tous)"
+        required: false
+        default: ""
+      repeat:
+        description: "Nombre de passages par cas"
+        required: false
+        default: "1"
 jobs:
   eval:
     runs-on: ubuntu-latest
@@ -26,6 +34,8 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: ${{ inputs.model }}
+          EVAL_IDS: ${{ inputs.ids }}
+          EVAL_REPEAT: ${{ inputs.repeat }}
         run: node tests/ai-eval/run.js corpus results
       - uses: actions/upload-artifact@v4
         if: always()

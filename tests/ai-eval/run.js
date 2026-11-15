@@ -27,7 +27,11 @@ function classify(expect, status) {
 
 (async () => {
   const rows = [];
-  for (const c of manifest.cases) {
+  const only = (process.env.EVAL_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const repeat = Math.max(1, Number(process.env.EVAL_REPEAT || 1));
+  const plan = [];
+  for (const c of manifest.cases) if (!only.length || only.includes(c.id)) for (let k = 0; k < repeat; k += 1) plan.push(c);
+  for (const c of plan) {
     const file = path.join(dir, c.file);
     const buffer = fs.readFileSync(file);
     const t0 = Date.now();
@@ -41,6 +45,7 @@ function classify(expect, status) {
     };
     rows.push(row);
     console.log(`${row.verdict.padEnd(18)} ${c.id.padEnd(22)} attendu=${c.expect} obtenu=${r.status}`);
+    if (row.verdict !== 'juste') console.log(`    motif: ${String(r.reason).slice(0, 220)} | type=${row.typeDetecte} | date=${row.date} | conf=${r.confidence}`);
     await sleep(DELAY);
   }
 
