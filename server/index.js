@@ -290,6 +290,10 @@ function tooMany(res, seconds) {
 }
 
 /* ---------- vues ---------- */
+/* Le guide « Comment l'obtenir ? » est désactivé tant que son contenu n'a pas été validé
+   localement (CLIENT_GUIDE=1 pour le rallumer). La page client n'affiche rien sans lui. */
+const CLIENT_GUIDE = process.env.CLIENT_GUIDE === '1';
+
 function publicDossier(d) {
   return {
     client: d.client,
@@ -304,7 +308,7 @@ function publicDossier(d) {
       reason: p.reason || '',
       filename: p.filename || '',
       dateDocument: p.dateDocument || '',
-      guide: guide.forPiece(p.key, p.label)
+      ...(CLIENT_GUIDE ? { guide: guide.forPiece(p.key, p.label) } : {})
     }))
   };
 }

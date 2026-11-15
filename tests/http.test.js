@@ -121,6 +121,7 @@ test('le lien client n\'expose que le strict nécessaire', async () => {
   const j = await r.json();
   assert.deepStrictEqual(Object.keys(j).sort(), ['ai', 'cabinet', 'dossier']);
   assert.deepStrictEqual(Object.keys(j.dossier).sort(), ['client', 'createdAt', 'pieces', 'progress', 'template']);
+  assert.ok(!('guide' in j.dossier.pieces[0]), 'le guide est désactivé par défaut');
   const txt = JSON.stringify(j);
   for (const secret of ['c@client.test', 'seal', ids.A, 'cab_', '@cab.test']) assert.ok(!txt.includes(secret), 'fuite : ' + secret);
   assert.strictEqual((await fetch(BASE + '/api/portal/jetoninconnu')).status, 404);
