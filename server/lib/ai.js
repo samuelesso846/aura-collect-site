@@ -293,6 +293,35 @@ async function readPdfText(buffer) {
   }
 }
 
+const SCAN_MAX_PAGES = 3;
+
+/* PDF sans texte (scan ou photo enregistrée en PDF) : on dessine les premières pages
+   en images pour que le modèle les lise comme une photo. Renvoie { pages, total } ou
+   null si le rendu est impossible (le cabinet contrôle alors la pièce). */
+async function renderPdfPages(buffer) {
+  try {
+    const { createCanvas } = require('@napi-rs/canvas');
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const doc = await pdfjs.getDocument({
+      data: new Uint8Array(buffer), useSystemFonts: true, isEvalSupported: false
+    }).promise;
+    const total = doc.numPages;
+    const pages = [];
+    for (let i = 1; i <= Math.min(total, SCAN_MAX_PAGES); i += 1) {
+      const page = await doc.getPage(i);
+      const base = page.getViewport({ scale: 1 });
+      const vp = page.getViewport({ scale: Math.min(2, 1600 / Math.max(base.width, base.height)) });
+      const canvas = createCanvas(Math.ceil(vp.width), Math.ceil(vp.height));
+      await page.render({ canvasContext: canvas.getContext('2d'), canvas, viewport: vp }).promise;
+      pages.push(await shrink(canvas.toBuffer('image/jpeg', 80)));
+    }
+    return pages.length ? { pages, total } : null;
+  } catch (err) {
+    console.error('[ai] rendu du PDF scanné impossible :', err.message);
+    return null;
+  }
+}
+
 /**
  * @param {{buffer:Buffer, mimetype:string, originalname:string}} file
  * @param {{label:string, rule:string}} piece
@@ -332,17 +361,29 @@ async function validate(file, piece, templateName) {
     if (isPdf) {
       const text = await readPdfText(file.buffer);
       if (text.length < 60) {
-        return {
-          ...base,
-          status: 'review',
-          reason: 'PDF scanné : la vérification visuelle automatique ne peut pas l’analyser. Le cabinet contrôle la pièce.',
-          configured: true
-        };
+        const scan = await renderPdfPages(file.buffer);
+        if (!scan) {
+          return {
+            ...base,
+            status: 'review',
+            reason: 'PDF scanné illisible par la vérification automatique. Le cabinet contrôle la pièce.',
+            configured: true
+          };
+        }
+        let note = `Le document est un PDF scanné de ${scan.total} page(s) ; les images ci-jointes en sont les pages.`;
+        if (scan.total > scan.pages.length) {
+          note += ` Seules les ${scan.pages.length} premières pages sont fournies : ne refuse pas la pièce parce que les suivantes manquent.`;
+        }
+        content = [
+          { type: 'text', text: userPrompt(piece, templateName) + '\n' + note },
+          ...scan.pages.map((p) => ({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + p.toString('base64') } }))
+        ];
+      } else {
+        content = [
+          { type: 'text', text: userPrompt(piece, templateName) },
+          { type: 'text', text: 'Contenu extrait du PDF :\n' + text.slice(0, 9000) }
+        ];
       }
-      content = [
-        { type: 'text', text: userPrompt(piece, templateName) },
-        { type: 'text', text: 'Contenu extrait du PDF :\n' + text.slice(0, 9000) }
-      ];
     } else {
       const light = await shrink(file.buffer);
       const dataUrl = `data:image/jpeg;base64,${light.toString('base64')}`;
@@ -377,4 +418,4 @@ async function validate(file, piece, templateName) {
   }
 }
 
-module.exports = { validate, status, configured };
+module.exports = { validate, status, configured, renderPdfPages };
