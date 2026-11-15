@@ -293,7 +293,6 @@ function tooMany(res, seconds) {
 function publicDossier(d) {
   return {
     client: d.client,
-    email: d.email,
     template: store.templateById(d.template).name,
     createdAt: d.createdAt,
     progress: store.progressOf(d),

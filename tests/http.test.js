@@ -115,6 +115,17 @@ test('un membre ne peut pas retirer l\'accès d\'un autre cabinet', async () => 
   assert.ok(r.status === 403 || r.status === 404, 'statut ' + r.status);
 });
 
+test('le lien client n\'expose que le strict nécessaire', async () => {
+  const r = await fetch(BASE + '/api/portal/tokdA' + 'x'.repeat(16));
+  assert.strictEqual(r.status, 200);
+  const j = await r.json();
+  assert.deepStrictEqual(Object.keys(j).sort(), ['ai', 'cabinet', 'dossier']);
+  assert.deepStrictEqual(Object.keys(j.dossier).sort(), ['client', 'createdAt', 'pieces', 'progress', 'template']);
+  const txt = JSON.stringify(j);
+  for (const secret of ['c@client.test', 'seal', ids.A, 'cab_', '@cab.test']) assert.ok(!txt.includes(secret), 'fuite : ' + secret);
+  assert.strictEqual((await fetch(BASE + '/api/portal/jetoninconnu')).status, 404);
+});
+
 test('cookie falsifié ou expiré refusé', async () => {
   assert.strictEqual((await call('aura_session=abc.def', 'GET', '/api/dossiers')).status, 401);
   const payload = (Date.now() + 1e6) + ':' + ids.A + ':';
