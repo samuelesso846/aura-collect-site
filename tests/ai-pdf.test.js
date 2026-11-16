@@ -23,6 +23,7 @@ test.before(async () => {
   });
   await new Promise((r) => server.listen(0, r));
   process.env.GROQ_API_KEY = 'test';
+  process.env.GROQ_TPM = '10000000'; // le régulateur a ses propres tests
   process.env.GROQ_BASE_URL = `http://127.0.0.1:${server.address().port}`;
   ai = require('../server/lib/ai');
 });

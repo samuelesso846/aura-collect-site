@@ -42,6 +42,7 @@ Règles :
 - extrait_lu : recopie mot pour mot un passage précis du document (un montant, un numéro, un nom). Ne l'invente jamais : si le texte est trop flou, trop petit ou trop sombre pour être lu avec certitude, mets null et lisible = false.
 - Si la règle exige une signature ou un cachet (« signé », « signée », « signature », « cachet »), cherche-le explicitement sur le document. S'il est absent, type_conforme = false et le motif dit « signature manquante ». Ne suppose jamais qu'une signature existe.
 - Si la règle précise le titulaire (« au nom de la société », « à votre nom », « au nom du gérant »), lis le nom du titulaire sur le document. Un nom de personne seul (M., Mme, prénom et nom) n'est pas une société : si la règle demande une société, type_conforme = false et le motif l'explique.
+- Tu juges uniquement le document reçu, jamais l'ensemble du dossier. Si la pièce attendue est au pluriel (« 3 derniers relevés bancaires », « factures d'achat ») et qu'un seul document est fourni, accepte-le s'il est conforme : le cabinet réclamera les autres. Ne refuse jamais parce qu'il « en manque ».
 - date_valide ne sert que si la règle de validité porte sur une période (par exemple « moins de 3 mois », « exercice concerné », « en cours de validité »). Dans ce cas, date_valide = false si la date ne respecte pas la règle ; si aucune date n'est visible, mets date_document à null et date_valide à false. Si la règle ne porte pas sur une date (par exemple « toutes les pages », « signé », « lisible »), mets date_valide à true et ne refuse jamais la pièce pour une date absente.
 - motif : explique au client ce qu'il doit faire, en une phrase, sans jargon. Si tout est bon, dis simplement que le document est accepté.
 - confiance : entre 0 et 1, ta certitude globale.
@@ -116,6 +117,59 @@ function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const breaker = require('./observe').breaker(4, 60000);
 
+/* Régulateur de débit. Le fournisseur plafonne les jetons par minute (8 000 sur l'offre
+   gratuite pour ce modèle, à l'échelle de l'organisation). Plutôt que d'envoyer une pièce
+   et de la voir refusée en 429, on tient le compte des jetons de la dernière minute et on
+   attend la place nécessaire. Une pièce attend au plus GROQ_MAX_WAIT_MS ; au-delà elle
+   passe en « à contrôler » par le cabinet. Offre payante : relever GROQ_TPM.
+   Les réglages sont relus à chaque appel (tests, changement sans redémarrage de code). */
+const cfg = () => ({
+  tpm: Number(process.env.GROQ_TPM || 8000),
+  windowMs: Number(process.env.GROQ_WINDOW_MS || 60000),
+  maxWait: Number(process.env.GROQ_MAX_WAIT_MS || 35000)
+});
+const spent = []; // { t, tokens } : jetons consommés pendant la fenêtre glissante
+let turn = Promise.resolve();
+
+function estimateTokens(content) {
+  let n = 900; // consigne système + schéma
+  for (const part of content) {
+    if (part.type === 'text') n += Math.ceil(String(part.text).length / 3.2);
+    else if (part.type === 'image_url') n += 1800;
+  }
+  return n + 250; // réponse
+}
+
+function pace(content, since) {
+  const run = async () => {
+    const { tpm, windowMs, maxWait } = cfg();
+    const budget = Math.floor(tpm * 0.85);
+    const est = estimateTokens(content);
+    for (;;) {
+      const now = Date.now();
+      while (spent.length && now - spent[0].t > windowMs) spent.shift();
+      let total = spent.reduce((a, x) => a + x.tokens, 0);
+      if (total + est <= budget || !spent.length) {
+        const slot = { t: now, tokens: est };
+        spent.push(slot);
+        return slot;
+      }
+      let k = 0;
+      while (k < spent.length - 1 && total + est > budget) { total -= spent[k].tokens; k += 1; }
+      const wait = Math.max(200, spent[k].t + windowMs - now + 100);
+      if (Date.now() - since + wait > maxWait) {
+        const e = new Error('Service de vérification saturé (débit du compte)');
+        e.status = 429; e.local = true; throw e;
+      }
+      await wait_(wait);
+    }
+  };
+  const mine = turn.then(run, run);
+  turn = mine.catch(() => {});
+  return mine;
+}
+function wait_(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
 /* Disjoncteur : si le fournisseur échoue 4 fois de suite, on ne le sollicite plus pendant
    une minute ; la pièce passe aussitôt en « à contrôler » par le cabinet. */
 async function callGroq(content, attempt) {
@@ -124,17 +178,18 @@ async function callGroq(content, attempt) {
     e.status = 503; throw e;
   }
   try {
-    const r = await callGroqOnce(content, attempt);
+    const r = await callGroqOnce(content, attempt, Date.now());
     breaker.ok();
     return r;
   } catch (e) {
-    breaker.fail();
+    if (!e.local) breaker.fail(); // saturation locale : pas une panne du fournisseur
     throw e;
   }
 }
 
-async function callGroqOnce(content, attempt) {
+async function callGroqOnce(content, attempt, since) {
   attempt = attempt || 1;
+  const slot = await pace(content, since || Date.now());
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 45000);
   try {
@@ -169,7 +224,7 @@ async function callGroqOnce(content, attempt) {
         console.warn('[ai] ' + res.status + ' — nouvelle tentative dans ' + Math.round(delay / 1000) + ' s');
         clearTimeout(timer);
         await wait(delay);
-        return callGroqOnce(content, attempt + 1);
+        return callGroqOnce(content, attempt + 1, since);
       }
       const err = new Error('Groq ' + res.status + ' : ' + body.slice(0, 300));
       err.status = res.status;
@@ -178,6 +233,8 @@ async function callGroqOnce(content, attempt) {
     let parsed;
     try { parsed = JSON.parse(body); } catch (_) { throw new Error('Réponse Groq illisible'); }
     const text = parsed?.choices?.[0]?.message?.content || '';
+    const real = Number(parsed?.usage?.total_tokens);
+    if (real > 0) slot.tokens = real; // on remplace l'estimation par la consommation réelle
     return { text, raw: parsed };
   } finally {
     clearTimeout(timer);
