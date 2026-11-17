@@ -17,6 +17,8 @@ const billing = require('./lib/billing');
 const storage = require('./lib/storage');
 const guide = require('./lib/guide');
 const relation = require('./lib/relation');
+const brand = require('./lib/brand');
+const fs = require('fs');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.PORT || 8788);
@@ -891,6 +893,119 @@ app.post('/api/domain', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/* ---------- identité du cabinet (page de dépôt des clients) ----------
+   Logo, mot d'accueil, contact, couleur. Réservé au propriétaire du cabinet. Le logo est
+   redessiné par le serveur (brand.processLogo) ; le texte est servi en texte brut. */
+const logoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024, files: 1 } });
+
+async function ownerOnly(req, res, next) {
+  try {
+    if (!(await estProprietaire(req))) {
+      return res.status(403).json({ error: 'Seul le propriétaire peut modifier l\'identité du cabinet.' });
+    }
+    next();
+  } catch (err) { next(err); }
+}
+
+function profileView(profile) {
+  return {
+    welcome: profile.welcome,
+    phone: profile.phone,
+    phoneDisplay: brand.phoneDisplay(profile.phone),
+    accent: brand.accentOf(profile.accent).id,
+    hasLogo: profile.hasLogo,
+    logoUrl: profile.hasLogo ? '/api/cabinet/logo?v=' + profile.logoVersion : null
+  };
+}
+
+app.get('/api/cabinet/profile', requireAuth, async (req, res, next) => {
+  try {
+    const cabinet = await billing.findById(req.cabinetId);
+    if (!cabinet) return res.status(401).json({ error: 'Session invalide.' });
+    res.json({
+      name: cabinet.name,
+      owner: await estProprietaire(req),
+      welcomeMax: brand.WELCOME_MAX,
+      accents: Object.entries(brand.ACCENTS).map(([id, a]) => ({ id, label: a.label, hex: a.hex, hex2: a.hex2 })),
+      ...profileView(await store.getProfile(req.cabinetId))
+    });
+  } catch (err) { next(err); }
+});
+
+app.post('/api/cabinet/profile', requireAuth, ownerOnly, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    if (!brand.ACCENTS[body.accent]) return res.status(400).json({ error: 'Couleur inconnue.' });
+    let welcome, phone;
+    try { welcome = brand.cleanWelcome(body.welcome); phone = brand.cleanPhone(body.phone); }
+    catch (e) { return res.status(e.status || 400).json({ error: e.message }); }
+
+    const ok = await store.saveProfile(req.cabinetId, { welcome, phone, accent: body.accent });
+    if (!ok) return res.status(503).json({ error: 'La mise à jour du schéma n’est pas encore passée. Réessayez après la migration.' });
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: '_cabinet', action: 'identite',
+      reason: 'Identité du cabinet modifiée (accueil, contact, couleur)',
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
+    res.json({ ok: true, ...profileView(await store.getProfile(req.cabinetId)) });
+  } catch (err) { next(err); }
+});
+
+app.post('/api/cabinet/logo', requireAuth, ownerOnly, (req, res, next) => {
+  logoUpload.single('logo')(req, res, (err) => {
+    if (err) {
+      return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400)
+        .json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'Image trop lourde (2 Mo maximum).' : 'Fichier non reçu.' });
+    }
+    next();
+  });
+}, async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+    let logo;
+    try { logo = await brand.processLogo(req.file.buffer); }
+    catch (e) { return res.status(e.status || 400).json({ error: e.message }); }
+    const version = await store.setLogo(req.cabinetId, logo.buffer, logo.mime);
+    if (version === null) return res.status(503).json({ error: 'La mise à jour du schéma n’est pas encore passée. Réessayez après la migration.' });
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: '_cabinet', action: 'identite',
+      reason: 'Logo du cabinet remplacé',
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
+    res.json({ ok: true, ...profileView(await store.getProfile(req.cabinetId)) });
+  } catch (err) { next(err); }
+});
+
+app.delete('/api/cabinet/logo', requireAuth, ownerOnly, async (req, res, next) => {
+  try {
+    await store.removeLogo(req.cabinetId);
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: '_cabinet', action: 'identite',
+      reason: 'Logo du cabinet retiré',
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
+    res.json({ ok: true, ...profileView(await store.getProfile(req.cabinetId)) });
+  } catch (err) { next(err); }
+});
+
+function sendLogo(res, logo) {
+  res.setHeader('Content-Type', logo.mime);
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.setHeader('Content-Security-Policy', "default-src 'none'");
+  res.send(logo.buffer);
+}
+
+app.get('/api/cabinet/logo', requireAuth, async (req, res, next) => {
+  try {
+    const logo = await store.getLogo(req.cabinetId);
+    if (!logo) return res.status(404).end();
+    sendLogo(res, logo);
+  } catch (err) { next(err); }
+});
+
 /* Ouverture d'une invitation : public, protégé par le jeton du lien. */
 app.get('/api/invitation/:token', async (req, res, next) => {
   try {
@@ -1661,7 +1776,37 @@ app.get('/api/portal/:token', async (req, res, next) => {
     if (linkExpired(dossier)) {
       return res.status(410).json({ error: `Ce lien a expiré après ${LINK_DAYS} jours. Demandez-en un nouveau à votre cabinet.` });
     }
-    res.json({ cabinet: await cabinetNameOf(dossier.cabinetId), dossier: publicDossier(dossier), ai: ai.configured() });
+    const name = await cabinetNameOf(dossier.cabinetId);
+    res.json({
+      cabinet: name,
+      brand: await portalBrand(dossier, name),
+      dossier: publicDossier(dossier),
+      ai: ai.configured()
+    });
+  } catch (err) { next(err); }
+});
+
+/* Ce que le cabinet a choisi de montrer à ses clients, rien d'autre. */
+async function portalBrand(dossier, name) {
+  const profile = await store.getProfile(dossier.cabinetId);
+  const accent = brand.accentOf(profile.accent);
+  return {
+    name,
+    welcome: profile.welcome,
+    phone: profile.phone,
+    phoneDisplay: brand.phoneDisplay(profile.phone),
+    accent: { hex: accent.hex, hex2: accent.hex2 },
+    logo: profile.hasLogo ? `/api/portal/${dossier.token}/logo?v=${profile.logoVersion}` : null
+  };
+}
+
+app.get('/api/portal/:token/logo', async (req, res, next) => {
+  try {
+    const dossier = await store.getByToken(req.params.token);
+    if (!dossier) return res.status(404).end();
+    const logo = await store.getLogo(dossier.cabinetId);
+    if (!logo) return res.status(404).end();
+    sendLogo(res, logo);
   } catch (err) { next(err); }
 });
 
@@ -1757,7 +1902,36 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
 });
 
 /* ---------- pages ---------- */
-app.get('/p/:token', (req, res) => res.sendFile(path.join(ROOT, 'p.html')));
+/* La page de dépôt est servie avec les balises d'aperçu du cabinet (nom, mot d'accueil,
+   logo) : WhatsApp les lit au moment où le cabinet colle le lien. Lien inconnu ou expiré :
+   page neutre, aucune information du cabinet. */
+let portalHtml = null;
+app.get('/p/:token', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  try {
+    if (portalHtml === null) portalHtml = await fs.promises.readFile(path.join(ROOT, 'p.html'), 'utf8');
+    let html = portalHtml;
+    const dossier = await store.getByToken(req.params.token).catch(() => null);
+    if (dossier && !linkExpired(dossier)) {
+      const name = await cabinetNameOf(dossier.cabinetId);
+      const profile = await store.getProfile(dossier.cabinetId);
+      const tags = brand.previewTags({
+        name,
+        welcome: profile.welcome,
+        accentHex: brand.accentOf(profile.accent).hex,
+        imageUrl: profile.hasLogo ? `${baseUrl(req)}/api/portal/${dossier.token}/logo?v=${profile.logoVersion}` : ''
+      });
+      html = html
+        .replace(/<title>[^<]*<\/title>/, '')
+        .replace(/<meta name="theme-color"[^>]*>/, '')
+        .replace('<!--PREVIEW-->', () => tags);
+    }
+    res.type('html').send(html);
+  } catch (err) {
+    console.error('[portail] page servie sans aperçu :', err.message);
+    res.sendFile(path.join(ROOT, 'p.html'));
+  }
+});
 /* « Se connecter » doit toujours montrer le formulaire, y compris lorsqu'une
    session est déjà ouverte — sinon on entre dans l'espace du compte précédent
    sans l'avoir demandé. La session est fermée ici, côté serveur, pour que le

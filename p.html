@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Déposer mes pièces — Aura Collect</title>
 <meta name="robots" content="noindex">
+<!--PREVIEW-->
 <meta name="theme-color" content="#F3F0FF">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B4BFF'/%3E%3Cpath d='M9 23l7-15 7 15' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12.5 18.5h7' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preload" href="/assets/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -18,6 +19,22 @@
   .portal__skeleton{padding:40px 30px}
   .sk{background:linear-gradient(90deg,#F1F2F8,#FAFAFE,#F1F2F8);background-size:200% 100%;animation:sk 1.2s linear infinite;border-radius:8px;height:12px;margin-bottom:12px}
   @keyframes sk{to{background-position:-200% 0}}
+
+  /* Identité du cabinet */
+  .brandlogo{display:block;max-height:44px;max-width:170px;width:auto;height:auto;object-fit:contain}
+  .brandwelcome{
+    margin-top:14px;padding:12px 14px;background:#F7F7FC;border-left:3px solid var(--violet);
+    border-radius:10px;font-size:13.5px;line-height:1.55;color:#2B3048;
+    white-space:pre-line;overflow-wrap:anywhere;
+  }
+  .brandcontact{
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;
+    padding:16px 22px;background:#fff;border-top:1px solid var(--line);
+    font-size:12.5px;line-height:1.5;color:#3A3F55;
+  }
+  .brandcontact b{font-weight:650;color:#0B2540;white-space:nowrap}
+  .brandcontact__btns{display:flex;gap:8px;flex:0 0 auto}
+  @media (max-width:520px){.brandcontact{flex-direction:column;align-items:stretch;text-align:center}.brandcontact__btns{justify-content:center}}
 
   /* Mode guidé : chaque pièce expliquée, dépliable */
   .upload.has-guide{align-items:flex-start}
@@ -81,6 +98,6 @@
 <input type="file" id="fileCamera" accept="image/*" capture="environment" hidden>
 <input type="file" id="fileAny" accept="application/pdf,image/jpeg,image/png,image/webp" hidden>
 
-<script src="assets/js/portal-live.js?v=2"></script>
+<script src="assets/js/portal-live.js?v=4"></script>
 </body>
 </html>

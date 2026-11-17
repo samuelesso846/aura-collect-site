@@ -38,6 +38,8 @@ Toutes les tables ont la sécurité par ligne activée, mais la politique `aura_
 
 `decision_log` est en ajout seul : depuis la migration `0002`, le rôle applicatif n'a plus que `insert` et `select` (droits et politiques par ligne). Un test vérifie le refus de toute modification ou suppression.
 
+**Identité du cabinet** (migration `0003`, table `cabinet_profile`) : logo, mot d'accueil, contact, couleur, affichés sur la page de dépôt des clients. Table à part pour que le logo (image, 150 Ko au plus) ne voyage pas avec chaque lecture de `cabinets`. Le logo est redessiné par le serveur (PNG ou JPEG uniquement, 360 px au plus, métadonnées retirées ; SVG refusé), le texte est affiché en texte brut, la couleur vient d'une liste fermée de six. Seul le propriétaire modifie, chaque changement est tracé au journal. Le lien client ne révèle que ce que le cabinet a saisi. Tant que la migration n'est pas passée, le portail s'affiche comme avant.
+
 ## Sécurité
 
 - Fichiers statiques en **liste blanche** : `/`, `/assets/*`, pages `*.html` à la racine. Jamais `server/`, `db/`, `documents/`, `render.yaml`.

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mon cabinet — Aura Collect</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/css/aura.css">
+<style>
+  .me{max-width:1040px;margin:0 auto;padding:32px 20px 80px}
+  .me__head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+  .me h1{font-size:26px;letter-spacing:-.03em;margin:0}
+  .sub{color:var(--muted);font-size:13px;margin-top:6px;line-height:1.5}
+  .back{font-size:12.5px;color:var(--muted);text-decoration:none}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:18px}
+  .card h2{font-size:14px;margin:0 0 6px;letter-spacing:-.01em}
+  .msg{font-size:12.5px;padding:10px 12px;border-radius:9px;display:none;margin-bottom:14px}
+  .msg.is-on{display:block}
+  .msg--err{background:#FDECEF;color:#B3253F;border:1px solid #F6CFD7}
+  .msg--ok{background:#EAF8F2;color:#0A7A63;border:1px solid #BFE9DC}
+  textarea{width:100%;min-height:110px;resize:vertical;font:inherit;font-size:13.5px;line-height:1.5;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:inherit}
+  .count{font-size:11px;color:var(--muted);text-align:right;margin-top:4px}
+  .count.is-over{color:#B3253F;font-weight:600}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.45}
+  .logo-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px}
+  .logo-box{width:84px;height:84px;border:1px dashed #C9CCE0;border-radius:14px;display:grid;place-items:center;background:#FAFAFE;overflow:hidden}
+  .logo-box img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+  .logo-box span{font-size:11px;color:var(--muted)}
+  .swatches{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+  .sw{position:relative}
+  .sw input{position:absolute;opacity:0;inset:0;cursor:pointer}
+  .sw i{display:block;width:38px;height:38px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #D3D6E6}
+  .sw input:checked + i{box-shadow:0 0 0 2px #0B2540}
+  .sw input:focus-visible + i{outline:2px solid #1264A3;outline-offset:3px}
+  .field{margin-top:16px}
+  .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px}
+  .field input[type=text],.field input[type=tel]{width:100%}
+
+  /* Aperçu : la page que verra le client */
+  .phone{position:sticky;top:18px}
+  .pv{background:linear-gradient(180deg,#F3F0FF,#F8F9FD);border:1px solid var(--line);border-radius:22px;padding:18px}
+  .pv__tag{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:650;margin-bottom:10px}
+  .pv__card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px 20px;--c:#1264A3;--c2:#3A8FD6}
+  .pv__id{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+  .pv__chip{width:36px;height:36px;border-radius:10px;background:linear-gradient(140deg,#0B2540,#1264A3);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;flex:0 0 36px}
+  .pv__logo{max-height:44px;max-width:170px;object-fit:contain;display:block}
+  .pv__name{font-size:10.5px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
+  .pv h3{font-size:22px;letter-spacing:-.03em;margin:0}
+  .pv__welcome{margin-top:14px;padding:12px 14px;background:#F7F7FC;border-left:3px solid var(--c);border-radius:10px;font-size:13px;line-height:1.55;color:#2B3048;white-space:pre-line;overflow-wrap:anywhere}
+  .pv__desc{font-size:13px;color:#555B73;margin-top:10px;line-height:1.5}
+  .pv__bar{height:6px;background:#ECEEF6;border-radius:99px;margin-top:16px;overflow:hidden}
+  .pv__bar i{display:block;height:100%;width:40%;background:linear-gradient(90deg,var(--c),var(--c2));border-radius:99px}
+  .pv__btn{margin-top:16px;display:inline-block;padding:9px 16px;border-radius:10px;background:linear-gradient(135deg,var(--c),var(--c2));color:#fff;font-size:12.5px;font-weight:600}
+  .pv__contact{margin-top:12px;padding:11px 14px;background:#fff;border:1px solid var(--line);border-radius:14px;font-size:12px;color:#3A3F55;display:none}
+  .pv__contact.is-on{display:block}
+  .pv__contact b{display:block;margin-top:6px;font-weight:600;color:var(--c)}
+</style>
+</head>
+<body>
+<main class="me">
+  <div class="me__head">
+    <div>
+      <h1>Mon cabinet</h1>
+      <div class="sub">Ce que vos clients voient en ouvrant le lien que vous leur envoyez.</div>
+    </div>
+    <a class="back" href="/app">← Retour à l'espace</a>
+  </div>
+
+  <div class="msg" id="msg" role="status"></div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>Logo</h2>
+        <div class="hint">PNG ou JPEG, 2 Mo au maximum. Il est redimensionné automatiquement. Un logo sur fond blanc ou transparent donne le meilleur résultat.</div>
+        <div class="logo-row">
+          <div class="logo-box" id="logoBox"><span>Aucun logo</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn--ghost btn--sm" id="logoPick" type="button">Choisir un logo</button>
+            <button class="btn btn--ghost btn--sm" id="logoDel" type="button" style="display:none">Retirer</button>
+          </div>
+          <input type="file" id="logoFile" accept="image/png,image/jpeg" hidden>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Mot d'accueil</h2>
+        <div class="hint">Affiché sous « Bonjour… » sur la page de dépôt. Quelques phrases suffisent. Aucun lien ni mise en forme : du texte simple.</div>
+        <div class="field" style="margin-top:12px">
+          <textarea id="welcome" maxlength="600" placeholder="Bonjour, voici les documents dont nous avons besoin pour préparer votre bilan. Photographiez-les bien à plat, en pleine lumière."></textarea>
+          <div class="count" id="count">0 / 500</div>
+        </div>
+
+        <div class="field">
+          <label for="phone">Contact pour vos clients (facultatif)</label>
+          <input id="phone" type="tel" inputmode="tel" placeholder="+228 90 12 34 56" autocomplete="off">
+          <div class="hint">Format international. Vos clients verront deux boutons : Appeler et WhatsApp.</div>
+        </div>
+
+        <div class="field">
+          <label>Couleur</label>
+          <div class="swatches" id="swatches" role="radiogroup" aria-label="Couleur d'accent"></div>
+        </div>
+
+        <button class="btn btn--primary btn--sm" id="save" style="margin-top:20px" type="button">Enregistrer</button>
+      </div>
+    </div>
+
+    <aside class="phone" aria-label="Aperçu de la page client">
+      <div class="pv">
+        <div class="pv__tag">Aperçu côté client</div>
+        <div class="pv__card" id="pv">
+          <div class="pv__id" id="pvId"></div>
+          <h3>Bonjour Kofi,</h3>
+          <div class="pv__welcome" id="pvWelcome" style="display:none"></div>
+          <div class="pv__desc">Votre cabinet vous demande 5 pièces pour votre dossier « Bilan annuel ». Chaque document est vérifié à l'arrivée.</div>
+          <div class="pv__bar"><i></i></div>
+          <span class="pv__btn">Déposer</span>
+        </div>
+        <div class="pv__contact" id="pvContact"></div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+let state = null;
+
+async function api(path, opts) {
+  const r = await fetch(path, opts || {});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Erreur ' + r.status);
+  return data;
+}
+function message(text, ok) {
+  const box = $('msg');
+  box.textContent = text;
+  box.className = 'msg is-on ' + (ok ? 'msg--ok' : 'msg--err');
+  box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+const initials = (n) => String(n).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
+function renderLogoBox() {
+  const box = $('logoBox');
+  box.textContent = '';
+  if (state.logoUrl) {
+    const img = document.createElement('img');
+    img.alt = 'Logo actuel';
+    img.src = state.logoUrl;
+    box.appendChild(img);
+  } else {
+    const s = document.createElement('span'); s.textContent = 'Aucun logo'; box.appendChild(s);
+  }
+  $('logoDel').style.display = state.logoUrl && state.owner ? '' : 'none';
+}
+
+function renderSwatches() {
+  const wrap = $('swatches');
+  wrap.textContent = '';
+  state.accents.forEach((a) => {
+    const lab = document.createElement('label'); lab.className = 'sw'; lab.title = a.label;
+    const inp = document.createElement('input');
+    inp.type = 'radio'; inp.name = 'accent'; inp.value = a.id; inp.checked = a.id === state.accent; inp.disabled = !state.owner;
+    inp.setAttribute('aria-label', a.label);
+    const dot = document.createElement('i'); dot.style.background = 'linear-gradient(135deg,' + a.hex + ',' + a.hex2 + ')';
+    lab.appendChild(inp); lab.appendChild(dot); wrap.appendChild(lab);
+    inp.addEventListener('change', () => { state.accent = a.id; renderPreview(); });
+  });
+}
+
+function currentAccent() {
+  return state.accents.find((a) => a.id === state.accent) || state.accents[0];
+}
+
+function normPhone(v) { return String(v || '').replace(/[\s.\-()]/g, ''); }
+
+function renderPreview() {
+  const a = currentAccent();
+  const pv = $('pv');
+  pv.style.setProperty('--c', a.hex); pv.style.setProperty('--c2', a.hex2);
+
+  const id = $('pvId'); id.textContent = '';
+  if (state.logoUrl) {
+    const img = document.createElement('img'); img.className = 'pv__logo'; img.alt = ''; img.src = state.logoUrl; id.appendChild(img);
+  } else {
+    const c = document.createElement('span'); c.className = 'pv__chip'; c.textContent = initials(state.name); id.appendChild(c);
+  }
+  const nm = document.createElement('span'); nm.className = 'pv__name'; nm.textContent = state.name; id.appendChild(nm);
+
+  const w = $('welcome').value.trim();
+  $('pvWelcome').style.display = w ? '' : 'none';
+  $('pvWelcome').textContent = w;
+
+  const p = normPhone($('phone').value);
+  const c = $('pvContact');
+  if (/^\+[1-9]\d{7,14}$/.test(p)) {
+    c.classList.add('is-on');
+    c.textContent = 'Une question ? Joignez ' + state.name + ' au ';
+    const b = document.createElement('b'); b.textContent = $('phone').value.trim(); b.style.display = 'inline'; c.appendChild(b);
+    const btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:8px;margin-top:10px';
+    ['Appeler', 'WhatsApp'].forEach((t) => {
+      const s = document.createElement('span');
+      s.textContent = t;
+      s.style.cssText = 'padding:6px 12px;border:1px solid var(--line);border-radius:999px;font-weight:600;font-size:11.5px;color:#0B2540;background:#fff';
+      btns.appendChild(s);
+    });
+    c.appendChild(btns);
+  } else { c.classList.remove('is-on'); c.textContent = ''; }
+}
+
+function updateCount() {
+  const n = $('welcome').value.trim().length;
+  $('count').textContent = n + ' / ' + state.welcomeMax;
+  $('count').classList.toggle('is-over', n > state.welcomeMax);
+}
+
+function fill() {
+  $('welcome').value = state.welcome || '';
+  $('phone').value = state.phoneDisplay || state.phone || '';
+  renderLogoBox(); renderSwatches(); updateCount(); renderPreview();
+  const lock = !state.owner;
+  ['welcome', 'phone', 'save', 'logoPick'].forEach((i) => { $(i).disabled = lock; });
+  if (lock) message('Seul le propriétaire du cabinet peut modifier cette page.', false);
+}
+
+function absorb(r) {
+  Object.assign(state, { welcome: r.welcome, phone: r.phone, phoneDisplay: r.phoneDisplay, accent: r.accent, hasLogo: r.hasLogo, logoUrl: r.logoUrl });
+}
+
+$('welcome').addEventListener('input', () => { updateCount(); renderPreview(); });
+$('phone').addEventListener('input', renderPreview);
+
+$('save').addEventListener('click', async () => {
+  const b = $('save'); b.disabled = true;
+  try {
+    const r = await api('/api/cabinet/profile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ welcome: $('welcome').value, phone: $('phone').value, accent: state.accent })
+    });
+    absorb(r); fill();
+    message('Enregistré. Vos prochains liens, et ceux déjà envoyés, affichent ces informations.', true);
+  } catch (e) { message(e.message, false); }
+  b.disabled = !state.owner;
+});
+
+$('logoPick').addEventListener('click', () => $('logoFile').click());
+$('logoFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  if (f.size > 2 * 1024 * 1024) return message('Image trop lourde (2 Mo maximum).', false);
+  const fd = new FormData(); fd.append('logo', f);
+  $('logoPick').disabled = true;
+  try { absorb(await api('/api/cabinet/logo', { method: 'POST', body: fd })); fill(); message('Logo enregistré.', true); }
+  catch (err) { message(err.message, false); }
+  $('logoPick').disabled = !state.owner;
+});
+
+$('logoDel').addEventListener('click', async () => {
+  if (!confirm('Retirer le logo ? Vos clients verront vos initiales à la place.')) return;
+  try { absorb(await api('/api/cabinet/logo', { method: 'DELETE' })); fill(); message('Logo retiré.', true); }
+  catch (err) { message(err.message, false); }
+});
+
+api('/api/cabinet/profile').then((d) => { state = d; fill(); }).catch((e) => {
+  if (/Non authentifié|Session/.test(e.message)) { location.href = '/app?login=1'; return; }
+  message(e.message, false);
+});
+</script>
+</body>
+</html>

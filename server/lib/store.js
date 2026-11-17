@@ -677,6 +677,84 @@ async function cabinetByDomain(domain) {
   }
 }
 
+/* ---------- identité du cabinet (page de dépôt des clients) ----------
+   Table à part (cabinet_profile) : le logo est une image, il ne doit pas voyager avec
+   chaque lecture de `cabinets`. Tant que la migration 0003 n'est pas passée (42P01),
+   tout reste neutre : le portail s'affiche comme avant. */
+const PROFIL_VIDE = { welcome: '', phone: '', accent: 'bleu', hasLogo: false, logoVersion: 0 };
+
+async function getProfile(cabinetId) {
+  if (!cabinetId) return { ...PROFIL_VIDE };
+  try {
+    const { rows } = await pool.query(
+      `select welcome, phone, accent, (logo is not null) as has_logo, logo_version
+         from aura.cabinet_profile where cabinet_id = $1`, [cabinetId]);
+    const r = rows[0];
+    if (!r) return { ...PROFIL_VIDE };
+    return { welcome: r.welcome, phone: r.phone, accent: r.accent, hasLogo: r.has_logo, logoVersion: r.logo_version };
+  } catch (err) {
+    if (err.code === '42P01') return { ...PROFIL_VIDE };
+    throw err;
+  }
+}
+
+async function saveProfile(cabinetId, { welcome, phone, accent }) {
+  try {
+    await pool.query(
+      `insert into aura.cabinet_profile (cabinet_id, welcome, phone, accent)
+       values ($1, $2, $3, $4)
+       on conflict (cabinet_id) do update
+         set welcome = excluded.welcome, phone = excluded.phone, accent = excluded.accent, updated_at = now()`,
+      [cabinetId, welcome, phone, accent]);
+    return true;
+  } catch (err) {
+    if (err.code === '42P01') return false;
+    throw err;
+  }
+}
+
+async function setLogo(cabinetId, buffer, mime) {
+  try {
+    const { rows } = await pool.query(
+      `insert into aura.cabinet_profile (cabinet_id, logo, logo_mime, logo_version)
+       values ($1, $2, $3, 1)
+       on conflict (cabinet_id) do update
+         set logo = excluded.logo, logo_mime = excluded.logo_mime,
+             logo_version = aura.cabinet_profile.logo_version + 1, updated_at = now()
+       returning logo_version`, [cabinetId, buffer, mime]);
+    return rows[0].logo_version;
+  } catch (err) {
+    if (err.code === '42P01') return null;
+    throw err;
+  }
+}
+
+async function removeLogo(cabinetId) {
+  try {
+    await pool.query(
+      `update aura.cabinet_profile
+          set logo = null, logo_mime = null, logo_version = logo_version + 1, updated_at = now()
+        where cabinet_id = $1`, [cabinetId]);
+    return true;
+  } catch (err) {
+    if (err.code === '42P01') return false;
+    throw err;
+  }
+}
+
+async function getLogo(cabinetId) {
+  if (!cabinetId) return null;
+  try {
+    const { rows } = await pool.query(
+      'select logo, logo_mime, logo_version from aura.cabinet_profile where cabinet_id = $1 and logo is not null',
+      [cabinetId]);
+    return rows[0] ? { buffer: rows[0].logo, mime: rows[0].logo_mime, version: rows[0].logo_version } : null;
+  } catch (err) {
+    if (err.code === '42P01') return null;
+    throw err;
+  }
+}
+
 async function healthy() {
   const { rows } = await pool.query('select 1 as ok');
   return rows[0].ok === 1;
@@ -814,5 +892,6 @@ module.exports = {
   addRelationMessage, listRelationMessages, setRelationStatus,
   addLead, listLeads, setPassword, addDecision, listDecisions,
   listUsers, countUsers, findUserByEmail, getUser, inviteUser, getUserByInvite,
-  activateUser, revokeUser, touchUserLogin, setDomain, getDomain, cabinetByDomain
+  activateUser, revokeUser, touchUserLogin, setDomain, getDomain, cabinetByDomain,
+  getProfile, saveProfile, setLogo, removeLogo, getLogo
 };

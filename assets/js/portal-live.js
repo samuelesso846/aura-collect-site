@@ -44,6 +44,62 @@
     return String(name).split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
   }
 
+  /* Identité du cabinet (logo, couleur, mot d'accueil, contact). Tout ce qui s'affiche
+     ici a été saisi par le cabinet : le texte passe par esc(), la couleur par une liste
+     fermée côté serveur (revérifiée ici), le logo est une image redessinée par le serveur. */
+  var HEX = /^#[0-9A-Fa-f]{6}$/;
+
+  function applyBrand() {
+    var b = data && data.brand;
+    if (!b) return;
+    var top = document.querySelector('.portal__brand');
+    if (top) top.style.display = 'none'; // l'identité affichée est celle du cabinet
+    if (b.name) document.title = 'Vos documents à déposer — ' + b.name;
+    if (b.accent && HEX.test(b.accent.hex) && HEX.test(b.accent.hex2)) {
+      var h = b.accent.hex, h2 = b.accent.hex2;
+      var st = document.getElementById('brandStyle');
+      if (!st) { st = document.createElement('style'); st.id = 'brandStyle'; document.head.appendChild(st); }
+      st.textContent =
+        '.portal{--violet:' + h + '}' +
+        '.portal .btn--primary{background:linear-gradient(135deg,' + h + ',' + h2 + ');box-shadow:0 10px 22px -12px ' + h + '}' +
+        '.portal .progress__bar i{background:linear-gradient(90deg,' + h + ',' + h2 + ')}' +
+        '.portal .done__ico{background:linear-gradient(140deg,' + h + ',' + h2 + ')}' +
+        '.portal .brandwelcome{border-left-color:' + h + '}';
+    }
+  }
+
+  function chip() {
+    return '<span class="brandchip" style="width:36px;height:36px;border-radius:10px;background:linear-gradient(140deg,#0B2540,#1264A3);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700">' +
+      esc(initials(data.cabinet)) + '</span>';
+  }
+
+  function brandMark() {
+    var b = data.brand;
+    var mark = b && b.logo
+      ? '<img class="brandlogo" src="' + esc(b.logo) + '" alt="Logo ' + esc(data.cabinet) + '" decoding="async">'
+      : chip();
+    return '<div style="display:flex;align-items:center;gap:11px;margin-bottom:14px">' + mark +
+      '<span style="font-size:10.5px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--violet)">' + esc(data.cabinet) + '</span>' +
+      '</div>';
+  }
+
+  function welcomeBlock() {
+    var b = data.brand;
+    return b && b.welcome ? '<div class="brandwelcome">' + esc(b.welcome) + '</div>' : '';
+  }
+
+  function contactBlock() {
+    var b = data.brand;
+    if (!b || !/^\+[1-9]\d{7,14}$/.test(b.phone || '')) return '';
+    var wa = 'https://wa.me/' + b.phone.replace(/\D/g, '');
+    return '<div class="brandcontact">' +
+      '<span>Une question ? Joignez ' + esc(data.cabinet) + ' au <b>' + esc(b.phoneDisplay || b.phone) + '</b></span>' +
+      '<span class="brandcontact__btns">' +
+        '<a class="btn btn--ghost btn--sm" href="tel:' + esc(b.phone) + '">Appeler</a>' +
+        '<a class="btn btn--ghost btn--sm" href="' + esc(wa) + '" target="_blank" rel="noopener">WhatsApp</a>' +
+      '</span></div>';
+  }
+
   function renderHead() {
     var d = data.dossier;
     var p = d.progress;
@@ -59,11 +115,9 @@
       'La vérification automatique n\'est pas encore activée sur ce cabinet : vos pièces sont bien transmises, le cabinet les contrôle manuellement.</div>';
 
     return '<div class="portal__head">' +
-      '<div style="display:flex;align-items:center;gap:9px;margin-bottom:14px">' +
-        '<span style="width:30px;height:30px;border-radius:8px;background:linear-gradient(140deg,#0B2540,#1264A3);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700">' + initials(data.cabinet) + '</span>' +
-        '<span style="font-size:10.5px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--violet)">' + esc(data.cabinet) + '</span>' +
-      '</div>' +
+      brandMark() +
       '<h1>Bonjour ' + esc(salut(d.client)) + ',</h1>' +
+      welcomeBlock() +
       '<p class="portal__desc">Votre cabinet vous demande ' + p.total + ' pièces pour votre dossier « ' + esc(d.template) + ' ». Chaque document est vérifié à l\'arrivée.</p>' +
       banner +
       '<div class="progress">' +
@@ -134,6 +188,10 @@
   }
 
   function bind() {
+    // Logo introuvable ou illisible : on retombe sur les initiales, la page reste propre.
+    Array.prototype.forEach.call(document.querySelectorAll('.brandlogo'), function (img) {
+      img.addEventListener('error', function () { img.outerHTML = chip(); });
+    });
     Array.prototype.forEach.call(document.querySelectorAll('[data-act]'), function (b) {
       b.addEventListener('click', function () {
         if (busy) return;
@@ -161,7 +219,7 @@
       '<div class="portal__foot">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
         '<span>Vos documents sont transmis de façon chiffrée à votre cabinet. Ils ne sont jamais rendus publics.</span>' +
-      '</div>';
+      '</div>' + contactBlock();
     bind();
   }
 
@@ -175,7 +233,8 @@
         '<p>' + d.pieces.length + ' pièces validées pour votre dossier « ' + esc(d.template) + ' ».<br>' +
         'Vos pièces sont transmises à votre cabinet, déjà classées et renommées.</p>' +
         '<p style="font-size:11px;color:var(--muted);margin-top:24px">Vous pouvez fermer cette page.</p>' +
-      '</div>';
+      '</div>' + contactBlock();
+    bind();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -314,6 +373,7 @@
       var body = await res.json().catch(function () { return {}; });
       if (!res.ok) return fail(body.error || 'Ce lien n\'est plus valide.');
       data = body;
+      applyBrand();
       render();
     } catch (err) {
       fail('Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.');

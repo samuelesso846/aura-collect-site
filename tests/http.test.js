@@ -119,7 +119,8 @@ test('le lien client n\'expose que le strict nécessaire', async () => {
   const r = await fetch(BASE + '/api/portal/tokdA' + 'x'.repeat(16));
   assert.strictEqual(r.status, 200);
   const j = await r.json();
-  assert.deepStrictEqual(Object.keys(j).sort(), ['ai', 'cabinet', 'dossier']);
+  assert.deepStrictEqual(Object.keys(j).sort(), ['ai', 'brand', 'cabinet', 'dossier']);
+  assert.deepStrictEqual(Object.keys(j.brand).sort(), ['accent', 'logo', 'name', 'phone', 'phoneDisplay', 'welcome']);
   assert.deepStrictEqual(Object.keys(j.dossier).sort(), ['client', 'createdAt', 'pieces', 'progress', 'template']);
   assert.ok(!('guide' in j.dossier.pieces[0]), 'le guide est désactivé par défaut');
   const txt = JSON.stringify(j);
