@@ -65,7 +65,8 @@
         '.portal .progress__bar i{background:linear-gradient(90deg,' + h + ',' + h2 + ')}' +
         '.portal .done__ico{background:linear-gradient(140deg,' + h + ',' + h2 + ')}' +
         '.portal .brandwelcome{border-left-color:' + h + '}' +
-        '.portal .brandcontact .btn{background:linear-gradient(135deg,' + h + ',' + h2 + ');border-color:transparent;color:#fff}' +
+        '.portal .brandcontact .btn{background:#fff;border:1.5px solid ' + h + ';color:' + h + '}' +
+        '.portal .brandcontact .btn--wa{background:linear-gradient(135deg,' + h + ',' + h2 + ');border-color:transparent;color:#fff}' +
         '.portal .brandcontact b{color:' + h + '}';
     }
   }
@@ -98,7 +99,7 @@
       '<span>Une question ? Joignez ' + esc(data.cabinet) + ' au <b>' + esc(b.phoneDisplay || b.phone) + '</b></span>' +
       '<span class="brandcontact__btns">' +
         '<a class="btn btn--ghost btn--sm" href="tel:' + esc(b.phone) + '">Appeler</a>' +
-        '<a class="btn btn--ghost btn--sm" href="' + esc(wa) + '" target="_blank" rel="noopener">WhatsApp</a>' +
+        '<a class="btn btn--ghost btn--sm btn--wa" href="' + esc(wa) + '" target="_blank" rel="noopener">WhatsApp</a>' +
       '</span></div>';
   }
 

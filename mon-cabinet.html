@@ -205,7 +205,9 @@ function renderPreview() {
     ['Appeler', 'WhatsApp'].forEach((t) => {
       const s = document.createElement('span');
       s.textContent = t;
-      s.style.cssText = 'padding:6px 14px;border-radius:999px;font-weight:600;font-size:11.5px;color:#fff;background:linear-gradient(135deg,var(--c),var(--c2))';
+      s.style.cssText = t === 'WhatsApp'
+        ? 'padding:6px 14px;border-radius:999px;font-weight:600;font-size:11.5px;color:#fff;background:linear-gradient(135deg,var(--c),var(--c2))'
+        : 'padding:5px 13px;border-radius:999px;font-weight:600;font-size:11.5px;color:var(--c);background:#fff;border:1.5px solid var(--c)';
       btns.appendChild(s);
     });
     c.appendChild(btns);
