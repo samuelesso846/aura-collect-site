@@ -64,7 +64,9 @@
         '.portal .btn--primary{background:linear-gradient(135deg,' + h + ',' + h2 + ');box-shadow:0 10px 22px -12px ' + h + '}' +
         '.portal .progress__bar i{background:linear-gradient(90deg,' + h + ',' + h2 + ')}' +
         '.portal .done__ico{background:linear-gradient(140deg,' + h + ',' + h2 + ')}' +
-        '.portal .brandwelcome{border-left-color:' + h + '}';
+        '.portal .brandwelcome{border-left-color:' + h + '}' +
+        '.portal .brandcontact .btn{background:linear-gradient(135deg,' + h + ',' + h2 + ');border-color:transparent;color:#fff}' +
+        '.portal .brandcontact b{color:' + h + '}';
     }
   }
 
