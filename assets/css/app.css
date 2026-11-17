@@ -104,7 +104,7 @@
 [hidden]{display:none!important}
 
 /* Écran de connexion : seuls les liens publics ont du sens avant d'être identifié. */
-.is-login .ai-pill,.is-login .admin-top__right a[href="equipe.html"],.is-login .admin-top__right a[href="abonnement"]{display:none}
+.is-login .ai-pill,.is-login .admin-top__right a[href="equipe.html"],.is-login .admin-top__right a[href="mon-cabinet.html"],.is-login .admin-top__right a[href="abonnement"]{display:none}
 @media (max-width:640px){
   .admin-top{padding:0 14px;gap:10px}
   .admin-top__right{gap:6px;min-width:0;max-width:calc(100vw - 150px);overflow-x:auto;scrollbar-width:none}
