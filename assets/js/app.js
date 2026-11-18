@@ -546,8 +546,12 @@
 
   /* ---------- création ---------- */
   function fillTemplates() {
-    $('#clientTpl').innerHTML = state.templates.map(function (t) {
-      return '<option value="' + t.id + '">' + esc(t.name) + ' — ' + esc(t.family) + '</option>';
+    var fams = [];
+    state.templates.forEach(function (t) { if (fams.indexOf(t.family) === -1) fams.push(t.family); });
+    $('#clientTpl').innerHTML = fams.map(function (f) {
+      return '<optgroup label="' + esc(f) + '">' + state.templates.filter(function (t) { return t.family === f; }).map(function (t) {
+        return '<option value="' + t.id + '">' + esc(t.name) + '</option>';
+      }).join('') + '</optgroup>';
     }).join('');
     updateHint();
   }
@@ -560,7 +564,7 @@
   function updateHint() {
     var t = currentTemplate();
     if (!t) return;
-    $('#tplHint').textContent = t.catalog.length + ' pièces possibles pour ce modèle.';
+    $('#tplHint').textContent = (t.about ? t.about + ' ' : '') + t.defaults.length + ' pièces cochées sur ' + t.catalog.length + ' possibles.';
     renderPicks();
   }
 
@@ -569,13 +573,22 @@
   function renderPicks() {
     var t = currentTemplate();
     if (!t) return;
-    $('#piecePicks').innerHTML = t.catalog.map(function (p) {
-      var on = t.defaults.indexOf(p.key) !== -1;
-      return '<label class="pick">' +
-        '<input type="checkbox" data-label="' + esc(p.label) + '" data-rule="' + esc(p.rule) + '"' + (on ? ' checked' : '') + '>' +
-        '<span class="pick__t">' + esc(p.label) + '</span>' +
-        '<span class="pick__r">' + esc(p.rule) + '</span>' +
-        '</label>';
+    var groups = [];
+    t.catalog.forEach(function (p) {
+      var g = p.group || 'Autres';
+      var found = groups.filter(function (x) { return x.name === g; })[0];
+      if (!found) groups.push(found = { name: g, items: [] });
+      found.items.push(p);
+    });
+    $('#piecePicks').innerHTML = groups.map(function (g) {
+      return '<div class="picks__group">' + esc(g.name) + '</div>' + g.items.map(function (p) {
+        var on = t.defaults.indexOf(p.key) !== -1;
+        return '<label class="pick">' +
+          '<input type="checkbox" data-key="' + esc(p.key) + '" data-label="' + esc(p.label) + '" data-rule="' + esc(p.rule) + '"' + (on ? ' checked' : '') + '>' +
+          '<span class="pick__t">' + esc(p.label) + '</span>' +
+          '<span class="pick__r">' + esc(p.rule) + '</span>' +
+          '</label>';
+      }).join('');
     }).join('');
     updateCount();
   }
@@ -583,7 +596,8 @@
   function updateCount() {
     var n = $('#piecePicks').querySelectorAll('input:checked').length +
       $('#customPieces').querySelectorAll('.pick--custom').length;
-    $('#pickCount').textContent = n === 0 ? '(aucune)' : '(' + n + ')';
+    $('#pickCount').textContent = n === 0 ? '(aucune)' : '(' + n + (n > 25 ? ' — 25 maximum' : '') + ')';
+    $('#pickCount').style.color = n > 25 ? 'var(--red)' : '';
   }
 
   function addCustomPiece() {
@@ -602,7 +616,7 @@
   function collectPieces() {
     var out = [];
     $('#piecePicks').querySelectorAll('input:checked').forEach(function (el) {
-      out.push({ label: el.getAttribute('data-label'), rule: el.getAttribute('data-rule') });
+      out.push({ key: el.getAttribute('data-key'), label: el.getAttribute('data-label'), rule: el.getAttribute('data-rule') });
     });
     $('#customPieces').querySelectorAll('.pick--custom').forEach(function (row) {
       if (!row.querySelector('input[type=checkbox]').checked) return;

@@ -1471,6 +1471,7 @@ app.get('/api/templates', requireAuth, (req, res) => {
       id: t.id,
       name: t.name,
       family: t.family,
+      about: t.about || '',
       defaults: t.defaults,
       catalog: t.catalog,
       // compatibilite : "pieces" reste la selection par defaut

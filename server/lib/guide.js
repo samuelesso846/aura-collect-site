@@ -58,7 +58,7 @@ const BY_KEY = {
 
   'justif-domicile': {
     quoi: "Un papier récent qui prouve où vous habitez, et qui est à votre nom.",
-    ou: "Une facture d'électricité, d'eau ou d'internet ; une quittance de loyer ; une attestation de votre propriétaire.",
+    ou: "Une facture d'électricité (CEET) ou d'eau (TdE), ou d'internet ; un certificat de résidence délivré par la mairie ou la chefferie ; une quittance de loyer ; une attestation de votre propriétaire.",
     accepte: [
       "Moins de 3 mois",
       "À votre nom",
@@ -587,6 +587,208 @@ const BY_KEY = {
       "Des pages manquantes"
     ],
     photo: "Scannez plutôt que photographier.",
+    substituts: []
+  },
+
+  /* ---- Modèles togolais / OHADA ---- */
+  'cif': {
+    quoi: "La carte ou l'attestation qui porte le numéro d'identification fiscale (NIF) de la structure, délivrée par l'administration fiscale.",
+    ou: "Auprès de l'Office togolais des recettes (OTR), ou via le guichet unique des formalités d'entreprise.",
+    accepte: ["Le NIF bien lisible", "Au nom exact de la structure", "Recto et verso si le document en a deux"],
+    refuse: ["Un document au nom d'une autre structure", "Une photo où le numéro est coupé ou flou"],
+    photo: "À plat, tous les bords visibles, sans reflet sur le numéro.",
+    substituts: ["Une attestation de NIF délivrée par l'administration — à faire confirmer par votre cabinet"]
+  },
+  'carte-cfe': {
+    quoi: "Le document remis par le guichet unique des formalités d'entreprise lors de l'immatriculation.",
+    ou: "Au Centre de formalités des entreprises (guichet unique) où l'entreprise a été enregistrée.",
+    accepte: ["Au nom de la structure", "Toutes les pages", "Cachet et numéro lisibles"],
+    refuse: ["Un reçu de paiement seul", "Une page manquante"],
+    photo: "À plat, cachet bien visible.",
+    substituts: []
+  },
+  'declarations-fiscales': {
+    quoi: "Les déclarations d'impôts déposées par l'entreprise, avec l'accusé ou le justificatif de dépôt.",
+    ou: "Dans vos archives, ou sur l'espace en ligne de l'administration fiscale ; sinon votre comptable.",
+    accepte: ["La déclaration complète", "L'accusé ou le cachet de dépôt", "La période demandée"],
+    refuse: ["Une déclaration sans preuve de dépôt", "Une autre période que celle demandée"],
+    photo: "Scannez plutôt que photographier, page par page.",
+    substituts: []
+  },
+  'quittances-impots': {
+    quoi: "Les reçus qui prouvent que les impôts ont été payés.",
+    ou: "Remis au moment du paiement (caisse, banque ou paiement en ligne) ; sinon votre comptable.",
+    accepte: ["Montant, date et référence lisibles", "La période concernée"],
+    refuse: ["Un ordre de virement non validé", "Un montant illisible"],
+    photo: "À plat, montant et date bien visibles.",
+    substituts: ["Relevé bancaire montrant le paiement, en complément"]
+  },
+  'retenues-source': {
+    quoi: "Les justificatifs des retenues d'impôt prélevées à la source, sur vos factures ou sur celles que vous payez.",
+    ou: "Attestations de retenue remises par vos clients ou fournisseurs ; sinon votre comptable.",
+    accepte: ["Montant retenu et période lisibles", "Nom de la partie concernée"],
+    refuse: ["Un justificatif sans montant", "Un document d'une autre période"],
+    photo: "À plat, sans pli.",
+    substituts: []
+  },
+  'avis-tpu': {
+    quoi: "L'avis ou la quittance de la taxe professionnelle des petites entreprises.",
+    ou: "À l'administration fiscale ou à l'ancien point de paiement ; à confirmer avec votre cabinet.",
+    accepte: ["Au nom de l'exploitant", "L'année demandée", "Montant lisible"],
+    refuse: ["Une année différente", "Un reçu sans nom"],
+    photo: "À plat, nom et montant visibles.",
+    substituts: []
+  },
+  'releves-mobile-money': {
+    quoi: "L'historique de votre compte T-Money ou Flooz : ce qui entre et ce qui sort.",
+    ou: "Dans l'application ou via le code USSD de l'opérateur, ou dans une agence de l'opérateur.",
+    accepte: ["La période demandée en entier", "Votre nom et votre numéro visibles", "Un PDF ou des captures qui se suivent sans trou"],
+    refuse: ["Seulement quelques opérations", "Des captures sans dates", "Le relevé d'un autre numéro"],
+    photo: "Si ce sont des captures d'écran, prenez-les dans l'ordre, sans rien couper.",
+    substituts: []
+  },
+  'domiciliation-salaire': {
+    quoi: "Un papier de votre banque ou de votre employeur qui confirme que votre salaire est versé sur votre compte.",
+    ou: "À votre banque (agence), ou auprès du service du personnel de votre employeur.",
+    accepte: ["Moins de 3 mois", "Nom, banque et numéro de compte visibles", "Cachet et signature"],
+    refuse: ["Sans cachet ni signature", "Au nom d'une autre personne"],
+    photo: "À plat, cachet visible.",
+    substituts: []
+  },
+  'registre-personnel': {
+    quoi: "La liste tenue par l'entreprise de tous ses salariés, avec leur date d'entrée.",
+    ou: "Tenu par l'entreprise ; votre responsable administratif l'a.",
+    accepte: ["La version à jour", "Toutes les pages"],
+    refuse: ["Une version ancienne", "Pages manquantes"],
+    photo: "Scannez page par page, à plat.",
+    substituts: []
+  },
+  'cnss-employeur': {
+    quoi: "Le document qui prouve que l'entreprise est inscrite à la Caisse nationale de sécurité sociale comme employeur.",
+    ou: "À la CNSS, ou via le guichet unique lors de la création.",
+    accepte: ["Au nom de l'entreprise", "Numéro employeur lisible"],
+    refuse: ["Un document au nom d'un salarié", "Numéro illisible"],
+    photo: "À plat, numéro bien visible.",
+    substituts: []
+  },
+  'cnss-salarie': {
+    quoi: "Le numéro d'immatriculation du salarié à la CNSS, sur sa carte ou son attestation.",
+    ou: "À la CNSS, ou auprès de l'employeur qui fait l'immatriculation.",
+    accepte: ["Nom et numéro lisibles"],
+    refuse: ["Une photo floue", "Un numéro d'une autre personne"],
+    photo: "À plat, numéro net.",
+    substituts: ["Si le salarié n'en a pas encore : le dire à l'employeur, qui fait la démarche"]
+  },
+  'dpe': {
+    quoi: "La déclaration que l'employeur fait avant l'arrivée d'un salarié.",
+    ou: "Établie par l'employeur ou son cabinet.",
+    accepte: ["Datée avant la prise de poste", "Nom du salarié et de l'employeur"],
+    refuse: ["Une déclaration non datée", "Un autre salarié"],
+    photo: "Scannez, toutes les pages.",
+    substituts: []
+  },
+  'visite-medicale': {
+    quoi: "Le certificat du médecin qui constate l'aptitude du salarié avant l'embauche.",
+    ou: "Chez un médecin agréé ou un service de santé au travail.",
+    accepte: ["Daté", "Nom du salarié", "Cachet et signature du médecin"],
+    refuse: ["Un certificat sans cachet", "Une date trop ancienne"],
+    photo: "À plat, cachet visible.",
+    substituts: []
+  },
+  'etats-variables': {
+    quoi: "Ce qui change le mois : heures supplémentaires, absences, primes, congés.",
+    ou: "Votre suivi interne (cahier ou tableur).",
+    accepte: ["Tous les salariés concernés", "Le mois précisé", "Les chiffres lisibles"],
+    refuse: ["Un tableau sans période", "Des chiffres rayés non corrigés"],
+    photo: "Un tableur ou un PDF est préférable à une photo.",
+    substituts: []
+  },
+  'inventaire-stock': {
+    quoi: "La liste de ce qui est en stock à la fin de l'exercice, avec quantités et valeurs.",
+    ou: "Dressée par l'entreprise à la clôture (comptage physique).",
+    accepte: ["Daté et signé", "Quantités et valeurs", "Toutes les pages"],
+    refuse: ["Sans date", "Sans valeurs", "Pages manquantes"],
+    photo: "Scannez page par page.",
+    substituts: []
+  },
+  'immobilisations': {
+    quoi: "Les gros achats ou ventes de l'exercice : véhicule, matériel, immeuble.",
+    ou: "Vos factures et actes d'achat ou de vente.",
+    accepte: ["Les factures ou actes complets", "La date et le montant lisibles"],
+    refuse: ["Un devis à la place de la facture", "Un montant illisible"],
+    photo: "À plat, toutes les pages.",
+    substituts: []
+  },
+  'procuration': {
+    quoi: "L'autorisation signée qui permet au cabinet d'agir à votre place auprès de l'administration.",
+    ou: "Le cabinet vous remet un modèle à signer.",
+    accepte: ["Signée par le gérant", "Datée", "Au nom de la bonne structure"],
+    refuse: ["Non signée", "Signée par une personne sans pouvoir"],
+    photo: "À plat, signature visible.",
+    substituts: []
+  },
+  'acte-naissance': {
+    quoi: "L'extrait de votre acte de naissance, délivré par l'état civil.",
+    ou: "À la mairie ou au centre d'état civil du lieu de naissance.",
+    accepte: ["Moins de 3 mois", "Cachet et signature", "Nom, date et lieu lisibles"],
+    refuse: ["Une photocopie sans cachet", "Un extrait trop ancien"],
+    photo: "À plat, cachet net.",
+    substituts: []
+  },
+  'non-condamnation': {
+    quoi: "Une déclaration signée qui atteste ne pas avoir été condamné pour les infractions qui interdisent de diriger une entreprise.",
+    ou: "Le cabinet ou le guichet unique remet le modèle ; vous le signez.",
+    accepte: ["Signée et datée", "Votre identité complète"],
+    refuse: ["Non signée", "Sans date"],
+    photo: "À plat, signature visible.",
+    substituts: []
+  },
+  'pv-nomination': {
+    quoi: "Le procès-verbal où les associés nomment le ou les dirigeants.",
+    ou: "Établi à la création ou à chaque changement de dirigeant.",
+    accepte: ["Signé par les associés", "Daté", "Toutes les pages"],
+    refuse: ["Non signé", "Pages manquantes"],
+    photo: "Scannez page par page.",
+    substituts: []
+  },
+  'beneficiaire-effectif': {
+    quoi: "La déclaration qui indique qui détient ou contrôle réellement l'entreprise.",
+    ou: "Un modèle est fourni par la banque ou le cabinet ; le dirigeant le remplit et le signe.",
+    accepte: ["Complète", "Signée et datée", "Les personnes concernées nommées"],
+    refuse: ["Des champs vides", "Non signée"],
+    photo: "À plat, signature visible.",
+    substituts: []
+  },
+  'livre-recettes': {
+    quoi: "Le cahier où vous notez ce que vous encaissez et ce que vous dépensez.",
+    ou: "Votre propre cahier ; à défaut, un tableur.",
+    accepte: ["Les dates et les montants lisibles", "La période demandée en entier"],
+    refuse: ["Des pages arrachées", "Une écriture illisible"],
+    photo: "Page par page, à plat, bonne lumière.",
+    substituts: ["Un tableur ou des notes classées par date"]
+  },
+  'titre-foncier': {
+    quoi: "Le titre qui prouve la propriété d'un terrain ou d'un bien.",
+    ou: "À la conservation foncière, ou chez le notaire ou le vendeur.",
+    accepte: ["Toutes les pages", "Nom du propriétaire et numéro lisibles"],
+    refuse: ["Un seul extrait de page", "Au nom d'un tiers sans acte de vente"],
+    photo: "Scannez page par page.",
+    substituts: ["Une attestation de propriété — à faire confirmer par votre banque"]
+  },
+  'permis-construire': {
+    quoi: "L'autorisation officielle de construire.",
+    ou: "À la mairie ou au service d'urbanisme.",
+    accepte: ["Signé et tamponné", "Au nom du demandeur", "Toutes les pages"],
+    refuse: ["Une simple demande non accordée", "Pages manquantes"],
+    photo: "À plat, cachet visible.",
+    substituts: []
+  },
+  'devis-bien': {
+    quoi: "Le devis ou la facture proforma du bien ou des travaux à financer.",
+    ou: "Donné par le fournisseur ou l'entrepreneur.",
+    accepte: ["Daté et signé du fournisseur", "Montant et description clairs"],
+    refuse: ["Sans nom du fournisseur", "Montant illisible"],
+    photo: "À plat, signature visible.",
     substituts: []
   }
 };
