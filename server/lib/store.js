@@ -6,14 +6,69 @@ const crypto = require('crypto');
 const storage = require('./storage');
 const { Pool } = require('pg');
 
-const pool = new Pool({
+const scope = require('./scope');
+
+const realPool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.PG_NO_SSL === '1' ? false : { rejectUnauthorized: false },
   max: Number(process.env.PG_POOL_MAX || 5),
   idleTimeoutMillis: 30000
 });
 
-pool.on('error', (err) => console.error('[db] erreur de pool :', err.message));
+realPool.on('error', (err) => console.error('[db] erreur de pool :', err.message));
+
+/* Isolation par ligne : pour une requête d'un cabinet connecté, la base ne voit
+   que les lignes de ce cabinet (migration 0004). L'interrupteur RLS_SCOPE=0
+   coupe ce mode sans redéployer le code. */
+const SCOPE_ON = () => process.env.RLS_SCOPE !== '0';
+const posePortee = (id) =>
+  `select set_config('aura.scope','cabinet',true), set_config('aura.cabinet_id','${id}',true)`;
+
+const pool = {
+  /* Hors contexte cabinet : accès direct, comme avant. Dans le contexte : une
+     transaction courte qui pose le périmètre, exécute la requête, valide. */
+  async query(text, params) {
+    const id = SCOPE_ON() ? scope.current() : null;
+    if (!id) return realPool.query(text, params);
+    const client = await realPool.connect();
+    try {
+      await client.query('begin');
+      await client.query(posePortee(id));
+      const res = await client.query(text, params);
+      await client.query('commit');
+      return res;
+    } catch (err) {
+      await client.query('rollback').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  },
+  /* Connexion dédiée (transactions multi-requêtes) : le `begin` du appelant
+     pose le périmètre, quand il y en a un. */
+  async connect() {
+    const client = await realPool.connect();
+    const id = SCOPE_ON() ? scope.current() : null;
+    if (!id) return client;
+    const origine = client.query.bind(client);
+    client.query = (text, ...reste) => {
+      if (typeof text === 'string' && text.trim().toLowerCase() === 'begin') {
+        return origine('begin').then((r) => origine(posePortee(id)).then(() => r));
+      }
+      return origine(text, ...reste);
+    };
+    /* Rendre la connexion au pool sans périmètre résiduel. */
+    const rendre = client.release.bind(client);
+    client.release = (err) => {
+      delete client.query;
+      delete client.release;
+      return rendre(err);
+    };
+    return client;
+  },
+  end: () => realPool.end(),
+  on: (...a) => realPool.on(...a)
+};
 
 const { TEMPLATES } = require('./templates');
 

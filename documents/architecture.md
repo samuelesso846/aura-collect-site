@@ -32,7 +32,13 @@
 
 ### Isolation entre cabinets
 
-Toutes les tables ont la sécurité par ligne activée, mais la politique `aura_app_all` autorise tout au rôle applicatif : **l'isolation entre cabinets repose uniquement sur `cabinet_id` dans le code**. C'est la dette de sécurité n° 1. Chemin de remédiation : (1) tests d'intégration qui vérifient qu'un cabinet ne lit jamais un dossier d'un autre, (2) puis politiques par ligne basées sur un paramètre de session `aura.cabinet_id`.
+**Depuis la migration `0004`**, la base impose elle-même l'isolation. Pour chaque requête d'un cabinet connecté (`requireAuth` → `scope.run`), `store.pool` ouvre une courte transaction qui pose `aura.scope='cabinet'` et `aura.cabinet_id`. Des politiques RESTRICTIVES (`isolation_cabinet`) limitent alors `cabinets`, `users`, `clients`, `dossiers`, `pieces`, `files`, `decision_log`, `payments`, `relation_messages`, `cabinet_profile` aux lignes de ce cabinet : une requête sans filtre n'expose plus rien d'un autre cabinet.
+- Hors contexte (lien client par jeton, webhook, inscription, connexion, opérateur) : accès complet, comme avant. Les vérifications d'unicité globale (e-mail d'un invité, domaine) passent par `scope.system`.
+- Non isolées volontairement : `outbox`, `leads`, `webhook_events`.
+- Interrupteur de secours : variable `RLS_SCOPE=0` coupe le mode sans redéployer.
+- Coût : trois allers-retours base au lieu d'un par requête de cabinet. À surveiller.
+- **Limite connue** : le rôle applicatif peut poser ces paramètres. La défense protège contre les erreurs de code, pas contre l'exécution de SQL arbitraire ; la fermer demanderait un rôle de base par cabinet.
+- Vérifié par `tests/rls.test.js` (connexion comme le rôle applicatif) et par les tests HTTP qui font tourner le serveur sous ce rôle.
 
 ### Journal des décisions
 
@@ -69,7 +75,7 @@ Toutes les tables ont la sécurité par ligne activée, mais la politique `aura_
 
 ## Dettes connues, par priorité
 
-1. Politiques par ligne réelles en base (l'isolation entre cabinets est aujourd'hui garantie par le code **et vérifiée par 17 tests**, dont des tests HTTP à deux cabinets, mais la base elle-même ne la fait pas respecter).
+1. ~~Politiques par ligne~~ : réglé (migration 0004), reste un rôle par cabinet si l'on veut se protéger du SQL arbitraire.
 2. Contraintes `CHECK` (statuts, plans) absentes.
 
 **Réglé le 14 novembre 2026** : révocation de session (un accès retiré coupe la session immédiatement ; au plus 20 s si la révocation vient d'une autre instance), journal des décisions en ajout seul (migration `0002`, appliquée en production), tests d'isolation.

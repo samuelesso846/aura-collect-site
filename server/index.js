@@ -18,6 +18,7 @@ const storage = require('./lib/storage');
 const guide = require('./lib/guide');
 const relation = require('./lib/relation');
 const brand = require('./lib/brand');
+const scope = require('./lib/scope');
 const fs = require('fs');
 
 const ROOT = path.join(__dirname, '..');
@@ -174,7 +175,9 @@ async function requireAuth(req, res, next) {
   if (!session || !(await sessionStillValid(session))) return res.status(401).json({ error: 'Non authentifié' });
   req.cabinetId = session.cabinetId;
   req.userId = session.userId || null;
-  next();
+  /* Tout le reste de la requête s'exécute dans le périmètre de ce cabinet :
+     la base ne montre alors que ses lignes. */
+  scope.run(session.cabinetId, next);
 }
 
 /* ---------- mots de passe ---------- */
@@ -772,7 +775,7 @@ app.post('/api/team/invite', requireAuth, async (req, res, next) => {
     }
 
     const dejaCabinet = await billing.findByEmail(email);
-    const dejaUser = await store.findUserByEmail(email);
+    const dejaUser = await scope.system(() => store.findUserByEmail(email)); /* unicité globale : hors périmètre */
     if (dejaCabinet || dejaUser) {
       return res.status(409).json({ error: 'Cette adresse est déjà utilisée sur Aura Collect.' });
     }
@@ -874,7 +877,7 @@ app.post('/api/domain', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'Indiquez un nom de domaine valide, par exemple dossiers.moncabinet.com.' });
     }
 
-    const dejaPris = await store.cabinetByDomain(value);
+    const dejaPris = await scope.system(() => store.cabinetByDomain(value)); /* unicité globale : hors périmètre */
     if (dejaPris && dejaPris.id !== req.cabinetId) {
       return res.status(409).json({ error: 'Ce domaine est déjà utilisé par un autre cabinet.' });
     }

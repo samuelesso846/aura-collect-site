@@ -53,10 +53,11 @@ test.before(async () => {
     await c.query("insert into aura.dossiers (id, token, client, email, template, cabinet_id) values ($1,$2,'Client','client@exemple.test','bilan',$3)", [id, TOK[k], cabinet]);
     await c.query("insert into aura.pieces (dossier_id, key, label, rule, position) values ($1,'avis-imposition','Avis','moins de 12 mois',0)", [id]);
   }
+  await c.query("alter role aura_app login password 'pw'");
   await c.end();
 
   srv = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
-    env: { PATH: process.env.PATH, PORT: String(APPPORT), DATABASE_URL: DB, PG_NO_SSL: '1', SESSION_SECRET: 'secret-de-test', NODE_ENV: 'test' },
+    env: { PATH: process.env.PATH, PORT: String(APPPORT), DATABASE_URL: DB.replace('postgres:pw@', 'aura_app:pw@').replace('//postgres:', '//aura_app:'), PG_NO_SSL: '1', SESSION_SECRET: 'secret-de-test', NODE_ENV: 'test' },
     stdio: 'ignore' });
   for (let i = 0; i < 60; i++) { try { const r = await fetch(BASE + '/api/health'); if (r.ok) return; } catch (_) {} await sleep(250); }
   throw new Error('le serveur ne démarre pas');
