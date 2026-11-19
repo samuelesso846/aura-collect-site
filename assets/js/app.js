@@ -204,7 +204,48 @@
 
   function render() {
     renderStats();
+    renderRelances();
     renderList();
+  }
+
+  /* À relancer aujourd'hui : dossiers ouverts, des pièces qui manquent, et pas de
+     nouvelle du client depuis 3 jours. Même règle que GET /api/relances. Rien
+     n'est envoyé seul : le cabinet ouvre WhatsApp et relit le message. */
+  var JOURS_SILENCE = 3;
+  function aRelancerMaintenant() {
+    var limite = Date.now() - JOURS_SILENCE * 864e5;
+    return state.dossiers.filter(function (d) {
+      if (d.status === 'scelle' || !d.obstacles || !d.obstacles.length) return false;
+      var t = Date.parse(d.lastActivity || d.createdAt);
+      return isFinite(t) && t < limite;
+    }).map(function (d) {
+      return { d: d, jours: Math.floor((Date.now() - Date.parse(d.lastActivity || d.createdAt)) / 864e5) };
+    }).sort(function (a, b) { return b.jours - a.jours; });
+  }
+  function renderRelances() {
+    var box = $('#relanceWrap');
+    if (!box) return;
+    var liste = aRelancerMaintenant();
+    if (!liste.length) { box.innerHTML = ''; return; }
+    var lignes = liste.slice(0, 8).map(function (x) {
+      var d = x.d, n = d.obstacles.length;
+      return '<div class="relrow">' +
+        '<button class="relrow__who" data-open="' + d.id + '">' +
+          '<span class="kcard__av">' + initials(d.clientName || d.client) + '</span>' +
+          '<span><b>' + esc(d.clientName || d.client) + '</b>' +
+          '<small>' + n + ' pièce' + (n > 1 ? 's' : '') + ' manquante' + (n > 1 ? 's' : '') + ' · sans nouvelle depuis ' + x.jours + ' j</small></span>' +
+        '</button>' +
+        '<a class="btn btn--ghost btn--sm relrow__wa" target="_blank" rel="noopener" href="https://wa.me/?text=' +
+          encodeURIComponent(waRelance(d)) + '">Relancer sur WhatsApp</a>' +
+      '</div>';
+    }).join('');
+    var plus = liste.length > 8 ? '<div class="relrow__more">et ' + (liste.length - 8) + ' autre(s)</div>' : '';
+    box.innerHTML = '<section class="relance" aria-label="Dossiers à relancer">' +
+      '<div class="relance__head"><h2>À relancer aujourd’hui</h2><span class="relance__n">' + liste.length + '</span></div>' +
+      lignes + plus + '</section>';
+    $$('[data-open]', box).forEach(function (b) {
+      b.addEventListener('click', function () { openDrawer(b.dataset.open); });
+    });
   }
 
   /* ---------- détail ---------- */
