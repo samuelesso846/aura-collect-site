@@ -7,6 +7,13 @@
 
   var state = { dossiers: [], templates: [], cabinet: '', ai: null, me: null };
 
+  /* Droits de la personne connectée (le serveur reste seul juge) : l'interface
+     masque seulement ce qu'elle ne pourrait pas faire. */
+  function peut(action) {
+    var d = state.me && state.me.droits;
+    return !d || d.indexOf(action) !== -1;
+  }
+
   var ICON = {
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
     cross: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
@@ -137,7 +144,7 @@
       : d.status === 'a_valider' ? 'à valider' : '';
     var bar = (d.status === 'scelle' || d.status === 'a_valider') ? 'is-ok'
       : d.status === 'incomplet' ? 'is-warn' : '';
-    var relance = (d.status !== 'scelle' && d.obstacles && d.obstacles.length)
+    var relance = (d.status !== 'scelle' && d.obstacles && d.obstacles.length && peut('dossier.relancer'))
       ? '<button class="kcard__act" data-remind="' + d.id + '">Relancer</button>'
       : '';
     return '<div class="kcard kcard--' + d.status + '" data-id="' + d.id + '">' +
@@ -203,6 +210,8 @@
   }
 
   function render() {
+    var nb = $('#newBtn');
+    if (nb) nb.style.display = peut('dossier.creer') ? '' : 'none';
     renderStats();
     renderRelances();
     renderList();
@@ -225,6 +234,7 @@
   function renderRelances() {
     var box = $('#relanceWrap');
     if (!box) return;
+    if (!peut('dossier.relancer')) { box.innerHTML = ''; return; }
     var liste = aRelancerMaintenant();
     if (!liste.length) { box.innerHTML = ''; return; }
     var lignes = liste.slice(0, 8).map(function (x) {
@@ -267,7 +277,7 @@
           : 'background:#F1F3F8;color:#98A0B2';
 
     var confirmBtn = '';
-    if (!d.sealed) {
+    if (!d.sealed && peut('piece.decider')) {
       if (p.status === 'ok' || p.status === 'review') {
         confirmBtn =
           '<button class="btn btn--ghost btn--xs" data-confirm="' + d.id + '|' + p.key + '">Confirmer</button>' +
@@ -515,7 +525,8 @@
       sealHtml = '<div class="drawer__section"><div class="drawer__label">Scellement</div>' +
         '<p class="detail-note" style="margin-top:0">Calcule une empreinte SHA-256 des pièces et produit un certificat PDF horodaté.</p>' +
         '<button class="btn btn--primary btn--block btn--sm" id="sealBtn"' +
-        (obstacles.length ? ' disabled style="opacity:.45;cursor:not-allowed"' : '') + '>Sceller le dossier</button></div>';
+        ((obstacles.length || !peut('dossier.sceller')) ? ' disabled style="opacity:.45;cursor:not-allowed"' : '') + '>Sceller le dossier</button>' +
+        (peut('dossier.sceller') ? '' : '<p class="detail-note">Seuls le propriétaire et les associés peuvent sceller.</p>') + '</div>';
     }
 
     $('#drawerBody').innerHTML = verdict + obstacleHtml + ctrlHtml +

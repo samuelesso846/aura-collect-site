@@ -749,7 +749,7 @@ async function inviteUser(cabinetId, { name, email, role, invitedBy, token, expi
     `insert into aura.users (cabinet_id, name, email, role, status, invited_by, invite_token, invite_expires_at)
      values ($1,$2,$3,$4,'invited',$5,$6,$7)
      returning id, name, email, role, status, created_at`,
-    [cabinetId, name || '', email, role === 'owner' ? 'owner' : 'member', invitedBy || null, token, expiresAt]);
+    [cabinetId, name || '', email, ['owner', 'associe', 'collaborateur', 'lecture'].includes(role) ? role : 'member', invitedBy || null, token, expiresAt]);
   return rows[0];
 }
 
@@ -777,6 +777,13 @@ async function revokeUser(id, cabinetId) {
     `update aura.users set status = 'revoked', invite_token = null
       where id = $1 and cabinet_id = $2 and role <> 'owner'
       returning id`, [id, cabinetId]);
+  return rows[0] || null;
+}
+
+async function setUserRole(id, cabinetId, role) {
+  const { rows } = await pool.query(
+    `update aura.users set role = $3 where id = $1 and cabinet_id = $2 and role <> 'owner' returning id`,
+    [id, cabinetId, role]);
   return rows[0] || null;
 }
 
@@ -836,6 +843,6 @@ module.exports = {
   addRelationMessage, listRelationMessages, setRelationStatus,
   addLead, listLeads, setPassword, addDecision, listDecisions,
   listUsers, countUsers, findUserByEmail, getUser, inviteUser, getUserByInvite,
-  activateUser, revokeUser, touchUserLogin, setDomain, getDomain, cabinetByDomain,
+  activateUser, revokeUser, setUserRole, touchUserLogin, setDomain, getDomain, cabinetByDomain,
   getProfile, saveProfile, setLogo, removeLogo, getLogo
 };

@@ -83,6 +83,14 @@
         <label for="email">Email</label>
         <input id="email" type="email" placeholder="prenom@cabinet.com">
       </div>
+      <div class="field">
+        <label for="role">Rôle</label>
+        <select id="role">
+          <option value="collaborateur">Collaborateur — prépare les dossiers, ne scelle pas</option>
+          <option value="associe">Associé — valide et scelle les dossiers</option>
+          <option value="lecture">Lecture seule — consulte uniquement</option>
+        </select>
+      </div>
     </div>
     <button class="btn btn--primary btn--sm" id="inviteBtn" style="margin-top:14px">Créer le lien d'invitation</button>
 
@@ -113,6 +121,9 @@ function message(text, ok) {
   box.className = 'msg is-on ' + (ok ? 'msg--ok' : 'msg--err');
 }
 
+const LIBELLES = { owner: 'Propriétaire', associe: 'Associé', collaborateur: 'Collaborateur', lecture: 'Lecture seule' };
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
 function badge(u) {
   if (u.status === 'invited') return '<span class="badge badge--wait">Invitation en attente</span>';
   if (u.status === 'revoked') return '<span class="badge badge--off">Accès retiré</span>';
@@ -127,15 +138,32 @@ async function load() {
   $('list').innerHTML = data.users.length
     ? data.users.map(function (u) {
         const moi = u.id === data.me;
+        const role = u.role === 'member' ? 'associe' : u.role;
+        const roleHtml = (data.owner && role !== 'owner' && u.status !== 'revoked')
+          ? '<select class="rolesel" data-role="' + esc(u.id) + '" aria-label="Rôle">' +
+              [['associe', 'Associé'], ['collaborateur', 'Collaborateur'], ['lecture', 'Lecture seule']].map(function (o) {
+                return '<option value="' + o[0] + '"' + (o[0] === role ? ' selected' : '') + '>' + o[1] + '</option>';
+              }).join('') + '</select>'
+          : '<span class="badge">' + esc(LIBELLES[role] || role) + '</span>';
         return '<div class="row">' +
-          '<div class="grow"><div class="row__n">' + (u.name || u.email) + (moi ? ' <span style="color:var(--muted);font-weight:400">(vous)</span>' : '') + '</div>' +
-          '<div class="row__e">' + u.email + (u.role === 'owner' ? ' · propriétaire' : '') + '</div></div>' +
+          '<div class="grow"><div class="row__n">' + esc(u.name || u.email) + (moi ? ' <span style="color:var(--muted);font-weight:400">(vous)</span>' : '') + '</div>' +
+          '<div class="row__e">' + esc(u.email) + '</div></div>' +
+          roleHtml +
           badge(u) +
           (data.owner && u.role !== 'owner' && u.status !== 'revoked'
             ? '<button class="btn btn--ghost btn--sm" data-revoke="' + u.id + '">Retirer</button>' : '') +
         '</div>';
       }).join('')
     : '<p class="team__sub">Aucun utilisateur enregistré. La migration n\'est peut-être pas encore passée.</p>';
+
+  document.querySelectorAll('[data-role]').forEach(function (s) {
+    s.addEventListener('change', async function () {
+      s.disabled = true;
+      try { await api('/api/team/' + s.getAttribute('data-role') + '/role', { method: 'POST', body: JSON.stringify({ role: s.value }) }); message('Rôle mis à jour.', true); }
+      catch (e) { message(e.message, false); await load(); }
+      s.disabled = false;
+    });
+  });
 
   document.querySelectorAll('[data-revoke]').forEach(function (b) {
     b.addEventListener('click', async function () {
@@ -155,7 +183,7 @@ $('inviteBtn').addEventListener('click', async function () {
   try {
     const r = await api('/api/team/invite', {
       method: 'POST',
-      body: JSON.stringify({ name: $('nom').value.trim(), email: $('email').value.trim() })
+      body: JSON.stringify({ name: $('nom').value.trim(), email: $('email').value.trim(), role: $('role').value })
     });
     $('inviteUrl').textContent = r.inviteUrl;
     $('waBtn').href = 'https://wa.me/?text=' + encodeURIComponent('Bonjour, voici votre accès à Aura Collect : ' + r.inviteUrl + ' (valable 7 jours)');

@@ -20,6 +20,7 @@ const relation = require('./lib/relation');
 const brand = require('./lib/brand');
 const scope = require('./lib/scope');
 const controles = require('./lib/controles');
+const droits = require('./lib/droits');
 const fs = require('fs');
 
 const ROOT = path.join(__dirname, '..');
@@ -631,6 +632,8 @@ app.get('/api/me', async (req, res) => {
     authenticated: Boolean(session && cabinet),
     cabinet: cabinet ? cabinet.name : null,
     user: user ? { name: user.name, email: user.email, role: user.role, id: user.id } : null,
+    role: session ? (user ? droits.normaliser(user.role) : 'owner') : null,
+    droits: session ? droits.DROITS_DE(user ? user.role : 'owner') : [],
     access,
     ai: ai.status(),
     mail: mail.mode(),
@@ -669,7 +672,7 @@ app.get('/api/clients/:id', requireAuth, async (req, res, next) => {
 
 /* Le cabinet peut refuser une pièce déjà reçue et en demander une autre :
    le client retrouve la pièce à redéposer sur son lien. */
-app.post('/api/dossiers/:id/pieces/:key/reject', requireAuth, async (req, res, next) => {
+app.post('/api/dossiers/:id/pieces/:key/reject', requireAuth, droit('piece.decider'), async (req, res, next) => {
   try {
     const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
@@ -699,7 +702,7 @@ app.post('/api/dossiers/:id/pieces/:key/reject', requireAuth, async (req, res, n
 });
 
 /* Le cabinet confirme une pièce : c'est le seul geste qui vaut validation. */
-app.post('/api/dossiers/:id/pieces/:key/confirm', requireAuth, async (req, res, next) => {
+app.post('/api/dossiers/:id/pieces/:key/confirm', requireAuth, droit('piece.decider'), async (req, res, next) => {
   try {
     const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
@@ -743,9 +746,27 @@ app.post('/api/dossiers/:id/pieces/:key/confirm', requireAuth, async (req, res, 
 const INVITE_DAYS = 7;
 
 async function estProprietaire(req) {
-  if (!req.userId) return true;                      // compte historique = propriétaire
+  return (await roleDe(req)) === 'owner';
+}
+
+/* Rôle de la personne connectée. Le compte historique (sans utilisateur) est le
+   propriétaire ; un utilisateur disparu n'a aucun droit. */
+async function roleDe(req) {
+  if (!req.userId) return 'owner';
+  if (req._role) return req._role;
   const u = await store.getUser(req.userId, req.cabinetId);
-  return Boolean(u && u.role === 'owner');
+  req._role = u ? droits.normaliser(u.role) : 'lecture';
+  return req._role;
+}
+
+/* Barrière de route : `app.post(..., requireAuth, droit('dossier.sceller'), …)` */
+function droit(action) {
+  return async function (req, res, next) {
+    try {
+      if (droits.peut(await roleDe(req), action)) return next();
+      res.status(403).json({ error: droits.MESSAGES[action] || 'Action non autorisée pour votre rôle.', code: 'role' });
+    } catch (err) { next(err); }
+  };
 }
 
 app.get('/api/team', requireAuth, async (req, res, next) => {
@@ -768,6 +789,10 @@ app.post('/api/team/invite', requireAuth, async (req, res, next) => {
   try {
     if (!(await estProprietaire(req))) {
       return res.status(403).json({ error: "Seul le propriétaire du cabinet peut inviter quelqu'un." });
+    }
+    const roleDemande = String((req.body && req.body.role) || 'collaborateur');
+    if (!droits.INVITABLES.includes(roleDemande)) {
+      return res.status(400).json({ error: 'Rôle inconnu.' });
     }
     const cabinet = await billing.findById(req.cabinetId);
     if (!cabinet) return res.status(401).json({ error: 'Session invalide.' });
@@ -799,7 +824,7 @@ app.post('/api/team/invite', requireAuth, async (req, res, next) => {
     const token = store.token(24);
     const expiresAt = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
     const created = await store.inviteUser(req.cabinetId, {
-      name, email, role: 'member', invitedBy: cabinet.email, token, expiresAt
+      name, email, role: roleDemande, invitedBy: cabinet.email, token, expiresAt
     });
 
     const auteur = await actorOf(req);
@@ -823,6 +848,28 @@ app.post('/api/team/invite', requireAuth, async (req, res, next) => {
     }
     next(err);
   }
+});
+
+/* Changer le rôle d'une personne de l'équipe (propriétaire seulement). */
+app.post('/api/team/:id/role', requireAuth, async (req, res, next) => {
+  try {
+    if (!(await estProprietaire(req))) {
+      return res.status(403).json({ error: droits.MESSAGES['equipe.gerer'] });
+    }
+    const role = String((req.body && req.body.role) || '');
+    if (!droits.INVITABLES.includes(role)) return res.status(400).json({ error: 'Rôle inconnu.' });
+    const cible = await store.getUser(req.params.id, req.cabinetId);
+    if (!cible || cible.role === 'owner') return res.status(404).json({ error: 'Utilisateur introuvable ou propriétaire.' });
+    await store.setUserRole(req.params.id, req.cabinetId, role);
+    userCache.delete(String(req.params.id));
+    const auteur = await actorOf(req);
+    await trace({
+      cabinetId: req.cabinetId, dossierId: '_cabinet', action: 'role',
+      reason: 'Rôle de ' + (cible.email || 'un utilisateur') + ' : ' + droits.LIBELLES[role],
+      actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
+    });
+    res.json({ ok: true, role });
+  } catch (err) { next(err); }
 });
 
 app.post('/api/team/:id/revoke', requireAuth, async (req, res, next) => {
@@ -1416,7 +1463,7 @@ app.get('/api/billing', requireAuth, async (req, res, next) => {
   }
 });
 
-app.post('/api/billing/checkout', requireAuth, async (req, res, next) => {
+app.post('/api/billing/checkout', requireAuth, droit('cabinet.regler'), async (req, res, next) => {
   try {
     if (!fedapay.configured()) return res.status(503).json({ error: 'Le paiement n’est pas encore configuré.' });
 
@@ -1497,7 +1544,7 @@ app.get('/api/dossiers', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-app.post('/api/dossiers', requireAuth, async (req, res, next) => {
+app.post('/api/dossiers', requireAuth, droit('dossier.creer'), async (req, res, next) => {
   try {
     const { client, email, phone, template, recipient, clientId, pieces } = req.body || {};
     if (!clientId && (!client || String(client).trim().length < 2)) {
@@ -1562,7 +1609,7 @@ app.get('/api/relances', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-app.post('/api/dossiers/:id/remind', requireAuth, async (req, res, next) => {
+app.post('/api/dossiers/:id/remind', requireAuth, droit('dossier.relancer'), async (req, res, next) => {
   try {
     const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
@@ -1593,7 +1640,7 @@ app.get('/api/dossiers/:id/export', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-app.post('/api/dossiers/:id/seal', requireAuth, async (req, res, next) => {
+app.post('/api/dossiers/:id/seal', requireAuth, droit('dossier.sceller'), async (req, res, next) => {
   try {
     const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
@@ -1669,7 +1716,7 @@ app.get('/api/dossiers/:id/relation', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-app.post('/api/dossiers/:id/relation', requireAuth, async (req, res, next) => {
+app.post('/api/dossiers/:id/relation', requireAuth, droit('dossier.message'), async (req, res, next) => {
   try {
     const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
@@ -1710,7 +1757,7 @@ app.post('/api/dossiers/:id/relation', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-app.post('/api/dossiers/:id/relation/:mid/status', requireAuth, async (req, res, next) => {
+app.post('/api/dossiers/:id/relation/:mid/status', requireAuth, droit('dossier.message'), async (req, res, next) => {
   try {
     const dossier = await store.getDossier(req.params.id, req.cabinetId);
     if (!dossier) return res.status(404).json({ error: 'Dossier introuvable.' });
