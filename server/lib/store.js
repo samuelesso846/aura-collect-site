@@ -276,7 +276,9 @@ function mapDossier(row, pieces) {
       dateDocument: p.date_document || '',
       confidence: p.confidence === null ? null : Number(p.confidence),
       provider: p.provider || '',
-      at: p.at || ''
+      at: p.at || '',
+      champs: p.champs || null,
+      empreinte: p.empreinte || ''
     }))
   };
 }
@@ -392,7 +394,8 @@ async function insertDossier(d) {
 const PIECE_FIELDS = {
   status: 'status', filename: 'filename', stored: 'stored', mime: 'mime', size: 'size',
   reason: 'reason', typeDetecte: 'type_detecte', dateDocument: 'date_document',
-  confidence: 'confidence', provider: 'provider', at: 'at'
+  confidence: 'confidence', provider: 'provider', at: 'at',
+  champs: 'champs', empreinte: 'empreinte'
 };
 
 async function updatePiece(dossierId, pieceKey, fields) {
@@ -402,7 +405,7 @@ async function updatePiece(dossierId, pieceKey, fields) {
   Object.keys(fields).forEach((k) => {
     if (!PIECE_FIELDS[k]) return;
     sets.push(`${PIECE_FIELDS[k]} = $${i++}`);
-    values.push(fields[k]);
+    values.push(k === 'champs' && fields[k] ? JSON.stringify(fields[k]) : fields[k]);
   });
   if (!sets.length) return;
   values.push(dossierId, pieceKey);

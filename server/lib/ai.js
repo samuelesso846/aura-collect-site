@@ -33,7 +33,13 @@ Schéma exact :
   "date_document": "AAAA-MM-JJ" | null,
   "date_valide": true|false,
   "motif": "une phrase claire, en français, destinée au client",
-  "confiance": 0.0
+  "confiance": 0.0,
+  "champs": {
+    "titulaire": "nom complet de la personne ou de la société à qui le document est établi" | null,
+    "numero": "numéro principal du document (identité, immatriculation, compte…)" | null,
+    "date_expiration": "AAAA-MM-JJ" | null,
+    "emetteur": "organisme ou personne qui a émis le document" | null
+  }
 }
 
 Règles :
@@ -47,7 +53,8 @@ Règles :
 - motif : explique au client ce qu'il doit faire, en une phrase, sans jargon. Si tout est bon, dis simplement que le document est accepté.
 - confiance : entre 0 et 1, ta certitude globale.
 - Une pièce générique ("Première pièce", "Deuxième pièce", règle « selon vos règles ») n'impose aucune nature : type_conforme vaut true dès que l'image contient un document, et l'absence de date ne rend pas la pièce invalide.
-- Ne devine jamais une date : si elle n'est pas lisible, elle est null.`;
+- Ne devine jamais une date : si elle n'est pas lisible, elle est null.
+- champs : recopie exactement ce qui est écrit sur le document, sans corriger ni compléter. Un champ absent ou pas lisible avec certitude vaut null. date_expiration n'est renseignée que si une date d'expiration ou de fin de validité est imprimée. Ces champs ne changent pas ton verdict.`;
 
 /* Un modèle « sur-mesure » ne dit pas quelle pièce est attendue : ses libellés
    sont « Première pièce », « Deuxième pièce ». Sans cette distinction, le
@@ -239,6 +246,22 @@ async function callGroqOnce(content, attempt, since) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/* Champs lus : jamais fiables au point de décider seuls. On ne garde que du texte
+   court et des dates bien formées ; le reste est ignoré. */
+function extraireChamps(json) {
+  const c = json && typeof json === 'object' && json.champs && typeof json.champs === 'object' ? json.champs : null;
+  if (!c) return null;
+  const texte = (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, 120) : '');
+  const date = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : '');
+  const out = {
+    titulaire: texte(c.titulaire),
+    numero: texte(c.numero),
+    dateExpiration: date(c.date_expiration),
+    emetteur: texte(c.emetteur)
+  };
+  return Object.values(out).some(Boolean) ? out : null;
 }
 
 function toVerdict(json, piece) {
@@ -502,6 +525,7 @@ async function validate(file, piece, templateName) {
       ...verdict,
       typeDetecte: json && typeof json.type_detecte === 'string' ? json.type_detecte : '',
       dateDocument: json && typeof json.date_document === 'string' ? json.date_document : '',
+      champs: extraireChamps(json),
       configured: true
     };
   } catch (err) {
@@ -518,4 +542,4 @@ async function validate(file, piece, templateName) {
   }
 }
 
-module.exports = { validate, status, configured, renderPdfPages };
+module.exports = { validate, status, configured, renderPdfPages, extraireChamps };

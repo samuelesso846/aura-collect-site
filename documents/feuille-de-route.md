@@ -14,7 +14,13 @@ Ce qui donne le prix d'un logiciel, ce sont d'abord les cabinets qui paient ; le
 - [ ] File de tâches pour les traitements lourds (IA, archives), reprise sur erreur.
 - [ ] Contraintes CHECK (statuts, plans).
 
-## Phase 2 — Valeur métier
+## Phase 2 — Valeur métier (en cours)
+- [x] Lecture des champs de chaque pièce (titulaire, numéro, expiration, émetteur) et empreinte du fichier (migration 0005).
+- [x] Contrôles croisés : nom différent, pièce expirée ou proche de l'expiration, même fichier déposé deux fois. Alertes pour le cabinet, jamais de rejet automatique.
+- [x] Score de préparation et état « prêt » ; liste des dossiers à relancer (`GET /api/relances`, lecture seule).
+- [ ] Écran « À relancer aujourd'hui » dans l'interface.
+- [ ] Relances automatiques (hors e-mail tant que l'envoi est gelé : WhatsApp).
+- [ ] Extraction de champs métier (montants des factures, périodes de relevés).
 - Extraction des champs de chaque pièce (numéros, dates, montants, identité) et contrôles croisés entre pièces.
 - Score de complétude et alertes (pièce expirée, doublon, nom différent d'une pièce à l'autre).
 - Workflows : étapes, échéances, relances automatiques, assignation.

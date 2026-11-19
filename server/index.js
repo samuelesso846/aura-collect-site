@@ -19,6 +19,7 @@ const guide = require('./lib/guide');
 const relation = require('./lib/relation');
 const brand = require('./lib/brand');
 const scope = require('./lib/scope');
+const controles = require('./lib/controles');
 const fs = require('fs');
 
 const ROOT = path.join(__dirname, '..');
@@ -448,7 +449,10 @@ function baseUrl(req) {
 }
 
 function cabinetDossier(d, base) {
+  const alertes = controles.controles(d.pieces);
   return {
+    controles: alertes,
+    score: controles.score(d.pieces, alertes),
     id: d.id,
     client: d.client,
     clientId: d.clientId || null,
@@ -479,6 +483,7 @@ function cabinetDossier(d, base) {
       confidence: p.confidence,
       typeDetecte: p.typeDetecte || '',
       at: p.at || '',
+      champs: p.champs || null,
       forcable: store.peutEtreForce(p),
       motifRejet: p.status === 'ko' ? store.motifDeRejet(p.reason) : ''
     }))
@@ -1544,6 +1549,19 @@ app.post('/api/dossiers', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/* Dossiers silencieux avec pièces manquantes : la liste du jour pour relancer.
+   Lecture seule, rien n'est envoyé (l'envoi reste un geste du cabinet). */
+app.get('/api/relances', requireAuth, async (req, res, next) => {
+  try {
+    const jours = Math.min(30, Math.max(1, Number(req.query.jours) || 3));
+    const list = await store.listDossiers(req.cabinetId);
+    res.json({
+      jours,
+      relances: controles.aRelancer(list.map((d) => Object.assign({}, d, { sealed: d.sealHash || null })), new Date(), jours)
+    });
+  } catch (err) { next(err); }
+});
+
 app.post('/api/dossiers/:id/remind', requireAuth, async (req, res, next) => {
   try {
     const dossier = await store.getDossier(req.params.id, req.cabinetId);
@@ -1872,7 +1890,9 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
       dateDocument: verdict.dateDocument || '',
       confidence: verdict.confidence,
       provider: verdict.provider || '',
-      at: new Date().toISOString()
+      at: new Date().toISOString(),
+      champs: verdict.champs || null,
+      empreinte: crypto.createHash('sha256').update(req.file.buffer).digest('hex')
     });
 
     /* Deux traces distinctes : le dépôt (le client) et le verdict (la machine).

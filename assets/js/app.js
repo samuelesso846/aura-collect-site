@@ -148,7 +148,8 @@
       '</div>' +
       '<div class="kcard__tpl">' + esc(d.templateName) + '</div>' +
       '<div class="kcard__bar ' + bar + '"><i style="width:' + d.progress.pct + '%"></i></div>' +
-      '<div class="kcard__foot"><span>' + d.progress.ok + '/' + d.progress.total + ' pièces</span>' +
+      '<div class="kcard__foot"><span>' + d.progress.ok + '/' + d.progress.total + ' pièces' +
+        (d.score && d.score.alertes ? ' · <b style="color:#A5620B" title="Points à vérifier entre les pièces">⚠ ' + d.score.alertes + '</b>' : '') + '</span>' +
         '<span>' + rel(d.lastActivity) + '</span></div>' +
       relance +
     '</div>';
@@ -436,13 +437,27 @@
       : obstacles.length
         ? '<div class="verdict-box is-warn"><div class="verdict-box__t">' + obstacles.length + ' obstacle' + (obstacles.length > 1 ? 's' : '') +
           '</div><div class="verdict-box__s">Le scellement sera possible quand toutes les pièces seront validées.</div></div>'
-        : '<div class="verdict-box is-ok"><div class="verdict-box__t">Prêt à sceller</div><div class="verdict-box__s">Toutes les pièces sont validées.</div></div>';
+        : (d.score && d.score.alertes
+          ? '<div class="verdict-box is-warn"><div class="verdict-box__t">Pièces validées, ' + d.score.alertes + ' point' + (d.score.alertes > 1 ? 's' : '') + ' à vérifier</div><div class="verdict-box__s">Contrôlez les alertes ci-dessous avant de sceller.</div></div>'
+          : '<div class="verdict-box is-ok"><div class="verdict-box__t">Prêt à sceller</div><div class="verdict-box__s">Toutes les pièces sont validées.</div></div>');
 
     var obstacleHtml = obstacles.length
       ? '<div class="drawer__section"><div class="drawer__label">Obstacles</div>' + obstacles.map(function (o) {
           return '<div class="obstacle"><span class="obstacle__dot"></span><div>' +
             '<div class="obstacle__t">' + esc(o.label) + '</div>' +
             '<div class="obstacle__d">' + esc(o.reason || (o.status === 'wait' ? 'Pièce non déposée.' : 'Pièce à vérifier.')) + '</div>' +
+            '</div></div>';
+        }).join('') + '</div>'
+      : '';
+
+    /* Contrôles croisés : ce qu'une pièce ne révèle pas seule. Ils alertent, ils
+       ne bloquent pas : la décision reste au cabinet. */
+    var ctrl = d.controles || [];
+    var ctrlHtml = ctrl.length
+      ? '<div class="drawer__section"><div class="drawer__label">À vérifier entre les pièces</div>' + ctrl.map(function (c) {
+          var alerte = c.niveau === 'alerte';
+          return '<div class="obstacle"><span class="obstacle__dot" style="' + (alerte ? '' : 'background:#9AA0B8') + '"></span><div>' +
+            '<div class="obstacle__d" style="color:' + (alerte ? '#8A4A06' : 'var(--muted)') + '">' + esc(c.message) + '</div>' +
             '</div></div>';
         }).join('') + '</div>'
       : '';
@@ -462,7 +477,7 @@
         (obstacles.length ? ' disabled style="opacity:.45;cursor:not-allowed"' : '') + '>Sceller le dossier</button></div>';
     }
 
-    $('#drawerBody').innerHTML = verdict + obstacleHtml +
+    $('#drawerBody').innerHTML = verdict + obstacleHtml + ctrlHtml +
       '<div class="drawer__section">' +
         '<div class="drawer__label">Lien client</div>' +
         '<div class="link-line"><code>' + esc(d.link) + '</code>' +
