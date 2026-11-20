@@ -11,8 +11,12 @@ En cours, NON déployé, sur la branche `wip-2fa` : double authentification TOTP
 - app.html / app.js : champ « Code de sécurité » à la connexion
 - dépendance `qrcode`
 
+## Fait ensuite (20 novembre 2026, soir)
+- securite.html : activer (QR + clé manuelle + code), codes de secours affichés une seule fois, désactiver (mot de passe + code). Lien « Sécurité » dans app.html. La liste blanche de serveStatic laisse déjà passer cette page.
+- tests/2fa-http.test.js : 6 tests de bout en bout (sans code = needCode, mauvais code, bon code, rejeu refusé, code de secours à usage unique, désactivation).
+- `npm test` : 90 tests verts (lancer en non-root, embedded-postgres refuse root).
+
 ## Reste à faire
-1. Page securite.html (activer : QR + saisie du code + affichage UNIQUE des codes de secours ; désactiver) + lien dans app.html. Vérifier la liste blanche de pages dans `serveStatic` (server/index.js ~ligne 2135).
-2. Test HTTP de bout en bout (tests/roles-http.test.js sert de modèle : serveur sous le rôle aura_app) : login sans code = needCode, mauvais code, bon code, rejeu refusé, code de secours consommé une fois.
-3. Lancer `npm test` (en non-root : voir notes), appliquer 0006 en production AVANT de pousser, enregistrer son hash dans aura.schema_migrations, puis fusionner dans main.
-4. Phases suivantes (documents/feuille-de-route.md) : API publique + clés + webhooks, exports comptables, tableaux de bord de pilotage, file de tâches, sauvegardes, SSO.
+1. Vérification visuelle de securite.html dans un navigateur (QR lisible par une vraie application).
+2. Appliquer 0006 en production AVANT de fusionner (colonnes ajoutées seulement, sans risque pour l'ancien code), enregistrer son hash dans aura.schema_migrations, puis fusionner wip-2fa dans main.
+3. Phases suivantes (documents/feuille-de-route.md) : API publique + clés + webhooks, exports comptables, tableaux de bord de pilotage, file de tâches, sauvegardes, SSO.
