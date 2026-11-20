@@ -824,8 +824,21 @@
     err.classList.remove('is-on');
     $('#loginBtn').disabled = true;
     try {
-      await api('/api/login', { method: 'POST', body: { email: $('#email').value.trim(), password: $('#password').value } });
+      /* Appel direct : un 401 « code requis » n'est pas une session perdue. */
+      var champCode = $('#codeField');
+      var r = await fetch('/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ email: $('#email').value.trim(), password: $('#password').value, code: champCode && !champCode.hidden ? $('#code').value : undefined })
+      });
+      var data = {};
+      try { data = await r.json(); } catch (_) {}
+      if (r.status === 401 && data.needCode) {
+        if (champCode) { champCode.hidden = false; $('#code').focus(); }
+        throw new Error(data.error);
+      }
+      if (!r.ok) throw new Error(data.error || (r.status === 401 ? 'Identifiants incorrects.' : 'Erreur serveur (' + r.status + ')'));
       $('#password').value = '';
+      if ($('#code')) { $('#code').value = ''; champCode.hidden = true; }
       await load();
     } catch (ex) {
       err.textContent = ex.message === 'unauth' ? 'Identifiants incorrects.' : ex.message;
