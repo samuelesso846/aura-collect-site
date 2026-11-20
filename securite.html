@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sécurité — Aura Collect</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/css/aura.css">
+<style>
+  .sec{max-width:640px;margin:0 auto;padding:32px 20px 80px}
+  .sec__head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+  .sec h1{font-size:26px;letter-spacing:-.03em;margin:0}
+  .sec__sub{color:var(--muted);font-size:13px;margin-top:6px;line-height:1.6}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:18px}
+  .card h2{font-size:14px;margin:0 0 14px;letter-spacing:-.01em}
+  .badge{font-size:10.5px;padding:4px 9px;border-radius:999px;background:#EAF8F2;color:#0A7A63;font-weight:600}
+  .badge--off{background:#FFF4E5;color:#9A5B00}
+  .msg{font-size:12.5px;padding:10px 12px;border-radius:9px;display:none;margin-bottom:14px}
+  .msg.is-on{display:block}
+  .msg--err{background:#FDECEF;color:#B3253F;border:1px solid #F6CFD7}
+  .msg--ok{background:#EAF8F2;color:#0A7A63;border:1px solid #BFE9DC}
+  .back{font-size:12.5px;color:var(--muted);text-decoration:none}
+  .qr{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:6px 0 16px}
+  .qr__img{width:192px;height:192px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px;flex:none}
+  .qr__img svg{width:100%;height:100%;display:block}
+  .secret{font-family:var(--mono);font-size:13px;letter-spacing:.06em;word-break:break-all;background:#F7F6FF;border:1px dashed #CFE3F5;border-radius:10px;padding:10px 12px}
+  .steps{margin:0 0 16px;padding-left:18px;font-size:13px;line-height:1.8;color:var(--muted)}
+  .codes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0;font-family:var(--mono);font-size:14px;letter-spacing:.05em}
+  .codes span{background:#F7F6FF;border:1px solid #CFE3F5;border-radius:8px;padding:9px 10px;text-align:center}
+  .warn{font-size:12.5px;line-height:1.6;color:#9A5B00;background:#FFF4E5;border:1px solid #F6DDB0;border-radius:10px;padding:10px 12px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<main class="sec">
+  <div class="sec__head">
+    <div>
+      <h1>Sécurité</h1>
+      <div class="sec__sub">Protégez votre compte avec un code à 6 chiffres généré par votre téléphone.</div>
+    </div>
+    <a class="back" href="/app">← Retour à l'espace</a>
+  </div>
+
+  <div class="msg" id="msg" role="status"></div>
+
+  <div class="card" id="stateCard">
+    <h2>Double authentification</h2>
+    <div id="stateLine" class="sec__sub" style="margin:0">Chargement…</div>
+    <div class="actions" id="startActions">
+      <button class="btn btn--primary btn--sm hide" id="startBtn">Activer la double authentification</button>
+    </div>
+  </div>
+
+  <div class="card hide" id="setupCard">
+    <h2>Activer la double authentification</h2>
+    <ol class="steps">
+      <li>Installez une application d'authentification (Google Authenticator, Microsoft Authenticator, Authy…).</li>
+      <li>Scannez ce QR code, ou saisissez la clé manuellement.</li>
+      <li>Entrez ci-dessous le code à 6 chiffres affiché par l'application.</li>
+    </ol>
+    <div class="qr">
+      <div class="qr__img" id="qr" aria-label="QR code à scanner"></div>
+      <div style="flex:1;min-width:200px">
+        <div class="sec__sub" style="margin:0 0 6px">Clé de configuration manuelle</div>
+        <div class="secret" id="secret"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="code">Code de sécurité</label>
+      <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456">
+    </div>
+    <div class="actions">
+      <button class="btn btn--primary btn--sm" id="enableBtn">Vérifier et activer</button>
+      <button class="btn btn--ghost btn--sm" id="cancelBtn">Annuler</button>
+    </div>
+  </div>
+
+  <div class="card hide" id="recoveryCard">
+    <h2>Vos codes de secours</h2>
+    <div class="warn"><b>Notez-les maintenant.</b> Ils ne seront plus jamais affichés. Chaque code ne sert qu'une fois, si vous perdez votre téléphone. Conservez-les hors de votre téléphone (papier, coffre de mots de passe).</div>
+    <div class="codes" id="codes"></div>
+    <div class="actions">
+      <button class="btn btn--ghost btn--sm" id="copyCodes">Copier</button>
+      <button class="btn btn--primary btn--sm" id="doneBtn">J'ai noté mes codes</button>
+    </div>
+  </div>
+
+  <div class="card hide" id="disableCard">
+    <h2>Désactiver la double authentification</h2>
+    <p class="sec__sub" style="margin:0 0 14px">Par sécurité, confirmez avec votre mot de passe et un code (application ou code de secours).</p>
+    <div class="field">
+      <label for="pwd">Mot de passe</label>
+      <input id="pwd" type="password" autocomplete="current-password">
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label for="code2">Code de sécurité ou code de secours</label>
+      <input id="code2" type="text" autocomplete="one-time-code" maxlength="16">
+    </div>
+    <div class="actions">
+      <button class="btn btn--ghost btn--sm" id="disableBtn" style="border-color:#F6CFD7;color:#B3253F">Désactiver</button>
+    </div>
+  </div>
+</main>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+
+async function api(path, opts) {
+  const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}));
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Erreur ' + r.status);
+  return data;
+}
+
+function message(text, ok) {
+  const box = $('msg');
+  box.textContent = text;
+  box.className = 'msg is-on ' + (ok ? 'msg--ok' : 'msg--err');
+}
+function show(id, on) { $(id).classList.toggle('hide', !on); }
+
+let enCours = false; /* codes de secours affichés : on ne recharge pas l'état tant qu'ils sont à l'écran */
+
+async function load() {
+  const s = await api('/api/2fa');
+  if (!s.available) {
+    $('stateLine').textContent = 'La double authentification n’est pas disponible pour ce type de connexion. Connectez-vous avec votre adresse e-mail et votre mot de passe.';
+    show('startBtn', false); show('disableCard', false); show('setupCard', false);
+    return;
+  }
+  if (s.enabled) {
+    $('stateLine').innerHTML = '<span class="badge">Active</span> &nbsp;' + s.recoveryLeft + ' code' + (s.recoveryLeft > 1 ? 's' : '') + ' de secours restant' + (s.recoveryLeft > 1 ? 's' : '') + '.';
+    show('startBtn', false); show('setupCard', false); show('disableCard', true);
+  } else {
+    $('stateLine').innerHTML = '<span class="badge badge--off">Inactive</span> &nbsp;Votre compte n’est protégé que par son mot de passe.';
+    show('startBtn', true); show('disableCard', false);
+  }
+}
+
+$('startBtn').addEventListener('click', async function () {
+  const b = $('startBtn'); b.disabled = true;
+  try {
+    const r = await api('/api/2fa/setup', { method: 'POST', body: '{}' });
+    $('qr').innerHTML = r.qr;           /* SVG généré par le serveur à partir de notre propre URI */
+    $('secret').textContent = r.secret;
+    $('code').value = '';
+    show('setupCard', true); show('startBtn', false);
+    $('code').focus();
+  } catch (e) { message(e.message, false); }
+  b.disabled = false;
+});
+
+$('cancelBtn').addEventListener('click', function () {
+  show('setupCard', false); show('startBtn', true);
+  $('qr').innerHTML = ''; $('secret').textContent = '';
+});
+
+$('enableBtn').addEventListener('click', async function () {
+  const b = $('enableBtn'); b.disabled = true;
+  try {
+    const r = await api('/api/2fa/enable', { method: 'POST', body: JSON.stringify({ code: $('code').value.trim() }) });
+    enCours = true;
+    $('codes').innerHTML = r.recoveryCodes.map(function (c) { return '<span>' + c.replace(/[^A-Za-z0-9-]/g, '') + '</span>'; }).join('');
+    show('setupCard', false); show('stateCard', false); show('recoveryCard', true);
+    $('qr').innerHTML = ''; $('secret').textContent = '';
+    message('Double authentification activée. Notez vos codes de secours.', true);
+  } catch (e) { message(e.message, false); }
+  b.disabled = false;
+});
+
+$('copyCodes').addEventListener('click', function () {
+  const t = Array.from($('codes').children).map(function (s) { return s.textContent; }).join('\n');
+  if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { message('Codes copiés.', true); });
+  else message('Copie indisponible : notez-les à la main.', false);
+});
+
+$('doneBtn').addEventListener('click', async function () {
+  if (!confirm('Vos codes de secours ne seront plus affichés. Les avez-vous bien notés ?')) return;
+  enCours = false;
+  $('codes').innerHTML = '';
+  show('recoveryCard', false); show('stateCard', true);
+  await load();
+});
+
+$('disableBtn').addEventListener('click', async function () {
+  if (!confirm('Désactiver la double authentification ? Votre compte ne sera plus protégé que par son mot de passe.')) return;
+  const b = $('disableBtn'); b.disabled = true;
+  try {
+    await api('/api/2fa/disable', { method: 'POST', body: JSON.stringify({ password: $('pwd').value, code: $('code2').value.trim() }) });
+    $('pwd').value = ''; $('code2').value = '';
+    message('Double authentification désactivée.', true);
+    await load();
+  } catch (e) { message(e.message, false); }
+  b.disabled = false;
+});
+
+load().catch(function (e) {
+  if (/Non authentifié/.test(e.message)) { location.href = '/app?login=1'; return; }
+  message(e.message, false);
+});
+</script>
+</body>
+</html>
