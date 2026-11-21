@@ -21,8 +21,6 @@ const brand = require('./lib/brand');
 const scope = require('./lib/scope');
 const controles = require('./lib/controles');
 const droits = require('./lib/droits');
-const totp = require('./lib/totp');
-const QRCode = require('qrcode');
 const fs = require('fs');
 
 const ROOT = path.join(__dirname, '..');
@@ -529,21 +527,6 @@ const upload = multer({
 });
 
 /* ---------- authentification ---------- */
-/* Code de l'application (6 chiffres, usage unique) ou code de secours (usage
-   unique, consommé). */
-async function secondFacteurValide(user, saisie) {
-  try {
-    if (/^\d[\d\s]{4,}$/.test(saisie)) {
-      const pas = totp.verifier(totp.dechiffrer(user.totp_secret), saisie, { dernierPas: Number(user.totp_step || 0) });
-      return Boolean(pas && (await store.totpAdvance(user.id, pas)));
-    }
-    return await store.totpUseRecovery(user.id, totp.empreinte(saisie));
-  } catch (err) {
-    console.error('[2fa] vérification impossible :', err.message);
-    return false;
-  }
-}
-
 app.post('/api/login', async (req, res, next) => {
   try {
     const ip = req.ip || 'unknown';
@@ -601,21 +584,6 @@ app.post('/api/login', async (req, res, next) => {
       loginFail('ip', ip, LOGIN_MAX_IP);
       if (email) loginFail('pair', ip + '|' + email, LOGIN_MAX_PAIR);
       return res.status(401).json({ error: 'Identifiants incorrects.' });
-    }
-
-    /* Deuxième facteur : le mot de passe seul ne suffit pas. Les essais de code
-       comptent comme des échecs de connexion (6 chiffres ne se devinent pas
-       dans la limite autorisée). */
-    if (user && user.totp_enabled) {
-      const saisie = String((req.body && req.body.code) || '').trim();
-      if (!saisie) {
-        return res.status(401).json({ needCode: true, error: 'Entrez le code à 6 chiffres de votre application d’authentification.' });
-      }
-      if (!(await secondFacteurValide(user, saisie))) {
-        loginFail('ip', ip, LOGIN_MAX_IP);
-        if (email) loginFail('pair', ip + '|' + email, LOGIN_MAX_PAIR);
-        return res.status(401).json({ needCode: true, error: 'Code incorrect ou déjà utilisé.' });
-      }
     }
 
     loginClear('ip', ip);
@@ -1163,89 +1131,6 @@ app.post('/api/password', requireAuth, async (req, res) => {
     console.error('[password] échec :', err.message);
     return res.status(500).json({ ok: false, error: 'Modification impossible pour le moment.' });
   }
-});
-
-/* ---------- double authentification (par utilisateur) ---------- */
-async function utilisateurCourant(req, res) {
-  if (!req.userId) {
-    res.status(400).json({ error: 'La double authentification est disponible pour les comptes personnels. Le mot de passe partagé historique du cabinet n\'en bénéficie pas : créez un compte via Équipe.' });
-    return null;
-  }
-  const u = await store.getUser(req.userId, req.cabinetId);
-  if (!u) { res.status(401).json({ error: 'Session invalide.' }); return null; }
-  return u;
-}
-
-/* Les saisies de code comptent contre la même limite que la connexion. */
-function limite2fa(req, res) {
-  const cle = (req.ip || 'unknown') + '|2fa|' + (req.userId || '');
-  const attente = loginWait('pair', cle);
-  if (attente) { tooMany(res, attente); return null; }
-  return cle;
-}
-
-app.get('/api/2fa', requireAuth, async (req, res, next) => {
-  try {
-    if (!req.userId) return res.json({ available: false, enabled: false, recoveryLeft: 0 });
-    const t = await store.totpOf(req.userId, req.cabinetId);
-    res.json({ available: true, enabled: Boolean(t && t.enabled), recoveryLeft: t && t.enabled ? t.recovery.length : 0 });
-  } catch (err) { next(err); }
-});
-
-app.post('/api/2fa/setup', requireAuth, async (req, res, next) => {
-  try {
-    const u = await utilisateurCourant(req, res); if (!u) return;
-    if (u.totp_enabled) return res.status(409).json({ error: 'La double authentification est déjà active. Désactivez-la d\'abord pour la reconfigurer.' });
-    const secret = totp.nouveauSecret();
-    if (!(await store.totpPending(u.id, req.cabinetId, totp.chiffrer(secret)))) {
-      return res.status(409).json({ error: 'Configuration impossible pour le moment.' });
-    }
-    const uri = totp.otpauth(secret, u.email);
-    res.json({ secret: secret.match(/.{1,4}/g).join(' '), otpauth: uri, qr: await QRCode.toString(uri, { type: 'svg', margin: 1, width: 192 }) });
-  } catch (err) { next(err); }
-});
-
-app.post('/api/2fa/enable', requireAuth, async (req, res, next) => {
-  try {
-    const u = await utilisateurCourant(req, res); if (!u) return;
-    if (u.totp_enabled) return res.status(409).json({ error: 'Déjà active.' });
-    if (!u.totp_secret) return res.status(400).json({ error: 'Commencez par générer le QR code.' });
-    const cle = limite2fa(req, res); if (!cle) return;
-    const pas = totp.verifier(totp.dechiffrer(u.totp_secret), (req.body && req.body.code) || '');
-    if (!pas) {
-      loginFail('pair', cle, LOGIN_MAX_PAIR);
-      return res.status(400).json({ error: 'Code incorrect. Vérifiez l\'heure de votre téléphone et réessayez.' });
-    }
-    const codes = totp.codesDeSecours();
-    await store.totpEnable(u.id, req.cabinetId, codes.map(totp.empreinte), pas);
-    const auteur = await actorOf(req);
-    await trace({
-      cabinetId: req.cabinetId, dossierId: '_cabinet', action: 'double_authentification',
-      reason: 'Double authentification activée', actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
-    });
-    res.json({ ok: true, recoveryCodes: codes });
-  } catch (err) { next(err); }
-});
-
-app.post('/api/2fa/disable', requireAuth, async (req, res, next) => {
-  try {
-    const u = await utilisateurCourant(req, res); if (!u) return;
-    if (!u.totp_enabled) return res.json({ ok: true });
-    const cle = limite2fa(req, res); if (!cle) return;
-    const motDePasse = String((req.body && req.body.password) || '');
-    const saisie = String((req.body && req.body.code) || '').trim();
-    if (!u.password_hash || !verifyPassword(motDePasse, u.password_hash) || !(await secondFacteurValide(u, saisie))) {
-      loginFail('pair', cle, LOGIN_MAX_PAIR);
-      return res.status(400).json({ error: 'Mot de passe ou code incorrect.' });
-    }
-    await store.totpDisable(u.id, req.cabinetId);
-    const auteur = await actorOf(req);
-    await trace({
-      cabinetId: req.cabinetId, dossierId: '_cabinet', action: 'double_authentification',
-      reason: 'Double authentification désactivée', actorKind: auteur.kind, actorEmail: auteur.email, actorName: auteur.name
-    });
-    res.json({ ok: true });
-  } catch (err) { next(err); }
 });
 
 /* Consommation du lien de réinitialisation. */

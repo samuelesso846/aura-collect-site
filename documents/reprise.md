@@ -1,22 +1,12 @@
-# Point de reprise (20 novembre 2026)
+# Point de reprise (21 novembre 2026)
 
 Livré et en ligne (main) : isolation par ligne (0004), champs extraits + contrôles croisés + relances (0005), rôles et droits.
-En cours, NON déployé, sur la branche `wip-2fa` : double authentification TOTP.
 
-## Fait sur wip-2fa
-- server/lib/totp.js + tests/totp.test.js (5 tests verts, vecteurs RFC 6238)
-- db/migrations/0006_double_authentification.sql (PAS encore appliquée en production)
-- store.js : totpOf, totpPending, totpEnable, totpAdvance, totpUseRecovery, totpDisable
-- index.js : login en deux étapes (needCode), routes /api/2fa, /api/2fa/setup|enable|disable
-- app.html / app.js : champ « Code de sécurité » à la connexion
-- dépendance `qrcode`
-
-## Fait ensuite (20 novembre 2026, soir)
-- securite.html : activer (QR + clé manuelle + code), codes de secours affichés une seule fois, désactiver (mot de passe + code). Lien « Sécurité » dans app.html. La liste blanche de serveStatic laisse déjà passer cette page.
-- tests/2fa-http.test.js : 6 tests de bout en bout (sans code = needCode, mauvais code, bon code, rejeu refusé, code de secours à usage unique, désactivation).
-- `npm test` : 90 tests verts (lancer en non-root, embedded-postgres refuse root).
+## Double authentification : abandonnée (décision du propriétaire, 21 novembre)
+Jugée trop difficile à utiliser pour les cabinets. Le code, la page « Sécurité », les tests et la dépendance `qrcode` ont été retirés de main.
+- La migration `0006_double_authentification.sql` est conservée dans le dépôt : elle est déjà appliquée en production (hash enregistré dans aura.schema_migrations) et ne doit jamais être modifiée. Ses quatre colonnes `totp_*` de `aura.users` restent en base, inutilisées et sans effet.
+- Le code retiré reste récupérable dans l'historique git (commits edb5c8b, 65abe57, 892c9e2) si le sujet revient, par exemple pour de grands cabinets.
+- Alternative légère à étudier plus tard si un acheteur exige plus que le mot de passe : lien de connexion par e-mail ou WhatsApp, sans application à installer.
 
 ## Reste à faire
-1. Vérification visuelle de securite.html dans un navigateur (QR lisible par une vraie application).
-2. Appliquer 0006 en production AVANT de fusionner (colonnes ajoutées seulement, sans risque pour l'ancien code), enregistrer son hash dans aura.schema_migrations, puis fusionner wip-2fa dans main.
-3. Phases suivantes (documents/feuille-de-route.md) : API publique + clés + webhooks, exports comptables, tableaux de bord de pilotage, file de tâches, sauvegardes, SSO.
+Phases suivantes (documents/feuille-de-route.md) : API publique + clés + webhooks, exports comptables, tableaux de bord de pilotage, file de tâches, sauvegardes, SSO.

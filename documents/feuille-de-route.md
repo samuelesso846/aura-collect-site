@@ -26,7 +26,7 @@ Ce qui donne le prix d'un logiciel, ce sont d'abord les cabinets qui paient ; le
 - Workflows : étapes, échéances, relances automatiques, assignation.
 
 ## Phase 3 — Équipes et grands cabinets
-- Rôles fins, validation à deux niveaux, double authentification, SSO.
+- Rôles fins, validation à deux niveaux, SSO (double authentification écartée : trop lourde pour les cabinets).
 - Plusieurs établissements, vue de direction, tableaux de bord de pilotage.
 - API publique avec clés, webhooks, exports vers logiciels comptables.
 

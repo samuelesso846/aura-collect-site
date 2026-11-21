@@ -780,44 +780,6 @@ async function revokeUser(id, cabinetId) {
   return rows[0] || null;
 }
 
-/* ---- double authentification ---- */
-async function totpOf(id, cabinetId) {
-  const { rows } = await pool.query(
-    'select totp_secret, totp_enabled, totp_recovery, totp_step from aura.users where id = $1 and cabinet_id = $2', [id, cabinetId]);
-  return rows[0] ? {
-    secret: rows[0].totp_secret, enabled: rows[0].totp_enabled,
-    recovery: rows[0].totp_recovery || [], step: Number(rows[0].totp_step || 0)
-  } : null;
-}
-async function totpPending(id, cabinetId, secretChiffre) {
-  const { rowCount } = await pool.query(
-    "update aura.users set totp_secret = $3, totp_enabled = false, totp_recovery = '{}', totp_step = 0 where id = $1 and cabinet_id = $2 and totp_enabled = false",
-    [id, cabinetId, secretChiffre]);
-  return rowCount === 1;
-}
-async function totpEnable(id, cabinetId, empreintes, step) {
-  const { rowCount } = await pool.query(
-    'update aura.users set totp_enabled = true, totp_recovery = $3, totp_step = $4 where id = $1 and cabinet_id = $2 and totp_secret is not null',
-    [id, cabinetId, empreintes, step]);
-  return rowCount === 1;
-}
-/* Avance le dernier pas accepté, seulement s'il est plus récent : deux requêtes
-   simultanées avec le même code ne passent pas toutes les deux. */
-async function totpAdvance(id, step) {
-  const { rowCount } = await pool.query('update aura.users set totp_step = $2 where id = $1 and totp_step < $2', [id, step]);
-  return rowCount === 1;
-}
-async function totpUseRecovery(id, empreinte) {
-  const { rowCount } = await pool.query(
-    'update aura.users set totp_recovery = array_remove(totp_recovery, $2) where id = $1 and $2 = any(totp_recovery)', [id, empreinte]);
-  return rowCount === 1;
-}
-async function totpDisable(id, cabinetId) {
-  await pool.query(
-    "update aura.users set totp_secret = null, totp_enabled = false, totp_recovery = '{}', totp_step = 0 where id = $1 and cabinet_id = $2",
-    [id, cabinetId]);
-}
-
 async function setUserRole(id, cabinetId, role) {
   const { rows } = await pool.query(
     `update aura.users set role = $3 where id = $1 and cabinet_id = $2 and role <> 'owner' returning id`,
@@ -881,7 +843,6 @@ module.exports = {
   addRelationMessage, listRelationMessages, setRelationStatus,
   addLead, listLeads, setPassword, addDecision, listDecisions,
   listUsers, countUsers, findUserByEmail, getUser, inviteUser, getUserByInvite,
-  activateUser, revokeUser, setUserRole, touchUserLogin,
-  totpOf, totpPending, totpEnable, totpAdvance, totpUseRecovery, totpDisable, setDomain, getDomain, cabinetByDomain,
+  activateUser, revokeUser, setUserRole, touchUserLogin, setDomain, getDomain, cabinetByDomain,
   getProfile, saveProfile, setLogo, removeLogo, getLogo
 };
