@@ -1654,7 +1654,14 @@ app.post('/api/dossiers/:id/seal', requireAuth, droit('dossier.sceller'), async 
       });
     }
 
-    const manifest = await seal.buildManifest(dossier, await cabinetNameOf(dossier.cabinetId));
+    /* Instantané de l'historique et des contrôles : pris ici, une seule fois, puis
+       scellé avec le reste. Le journal continue de grandir ensuite sans toucher à
+       l'empreinte. */
+    const annex = seal.snapshotAnnex(
+      await store.listDecisions(dossier.id, req.cabinetId),
+      controles.controles(dossier.pieces, new Date())
+    );
+    const manifest = await seal.buildManifest(dossier, await cabinetNameOf(dossier.cabinetId), undefined, annex);
     const hash = seal.hashManifest(manifest);
     await store.sealDossier(dossier.id, hash, manifest.sealedAt, manifest);
 
@@ -1807,7 +1814,10 @@ app.get('/api/dossiers/:id/integrity', requireAuth, async (req, res, next) => {
        a été scellé, et non avec le nom actuel. Sans cela, renommer un cabinet
        ferait apparaître une fausse altération sur tous ses dossiers scellés. */
     const sealedCabinet = dossier.sealManifest.cabinet || await cabinetNameOf(dossier.cabinetId);
-    const manifest = await seal.buildManifest(dossier, sealedCabinet, dossier.sealManifest.sealedAt);
+    /* L'historique et les contrôles d'un manifeste v2 sont relus tels qu'ils ont été
+       scellés (le journal a pu grandir depuis) ; leur intégrité est couverte par
+       `manifestIntact`, les octets des pièces par `ok`. */
+    const manifest = await seal.buildManifest(dossier, sealedCabinet, dossier.sealManifest.sealedAt, seal.annexOf(dossier.sealManifest));
     const computed = seal.hashManifest(manifest);
     const ok = computed === dossier.sealHash;
     const changed = [];
