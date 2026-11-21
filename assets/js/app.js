@@ -783,28 +783,38 @@
     render();
   }
 
+  /* Mémorise qui est connecté et ce qu'il a le droit de faire.
+     Appelé au démarrage ET après chaque connexion : la page ouverte avant
+     connexion (ex. /app?login=1) a lu des droits vides ; sans cette relecture,
+     « Nouvelle demande », « Relancer », « Confirmer » et « Sceller » restaient
+     masqués jusqu'au prochain rechargement, même pour le propriétaire. */
+  function applyMe(me) {
+    state.me = me;
+    /* Avant connexion, /api/me renvoie cabinet:null : sans ce garde-fou
+       l'onglet affichait « null — Aura Collect ». */
+    if (me.cabinet) {
+      $('#cabinetName').textContent = me.cabinet;
+      document.title = me.cabinet + ' — Aura Collect';
+    } else {
+      document.title = 'Aura Collect';
+    }
+
+    var pill = $('#aiPill');
+    if (me.ai && me.ai.ready) {
+      pill.classList.remove('is-off');
+      pill.querySelector('span').textContent = 'Vérification IA active';
+      pill.removeAttribute('title');
+    } else {
+      pill.classList.add('is-off');
+      pill.querySelector('span').textContent = 'IA non configurée';
+      pill.title = 'La vérification automatique est momentanément indisponible. Les pièces restent déposables et validables manuellement.';
+    }
+  }
+
   async function boot() {
     try {
       var me = await api('/api/me');
-      state.me = me;
-      /* Avant connexion, /api/me renvoie cabinet:null : sans ce garde-fou
-         l'onglet affichait « null — Aura Collect ». */
-      if (me.cabinet) {
-        $('#cabinetName').textContent = me.cabinet;
-        document.title = me.cabinet + ' — Aura Collect';
-      } else {
-        document.title = 'Aura Collect';
-      }
-
-      var pill = $('#aiPill');
-      if (me.ai && me.ai.ready) {
-        pill.classList.remove('is-off');
-        pill.querySelector('span').textContent = 'Vérification IA active';
-      } else {
-        pill.classList.add('is-off');
-        pill.querySelector('span').textContent = 'IA non configurée';
-        pill.title = 'La vérification automatique est momentanément indisponible. Les pièces restent déposables et validables manuellement.';
-      }
+      applyMe(me);
 
       /* Le bouton « Se connecter » mène ici avec ?login=1 : il doit montrer le
          formulaire même si une session est déjà ouverte, sinon on entre dans
@@ -826,6 +836,7 @@
     try {
       await api('/api/login', { method: 'POST', body: { email: $('#email').value.trim(), password: $('#password').value } });
       $('#password').value = '';
+      applyMe(await api('/api/me'));
       await load();
     } catch (ex) {
       err.textContent = ex.message === 'unauth' ? 'Identifiants incorrects.' : ex.message;
