@@ -442,3 +442,47 @@ body.admin :focus-visible{outline:2px solid var(--a-blue);outline-offset:2px;bor
   .admin .kpi span{font-size:12px}
 }
 @media (max-width:640px){.admin .admin-top__cabinet{display:none}}
+
+/* ── Pages secondaires du cabinet (équipe, mon cabinet, abonnement) ── */
+.admin .admin-top__right .btn--ghost.is-current{background:#E9EFF6;color:var(--a-ink);font-weight:650}
+.admin .team,.admin .me{padding:40px 28px 90px}
+.admin .team h1,.admin .me h1{font-family:var(--serif);font-weight:400;font-size:44px;line-height:1;letter-spacing:-.02em;color:var(--a-ink)}
+.admin .team__sub,.admin .sub{font-size:14px;color:var(--a-mute);margin-top:10px}
+.admin .team__head,.admin .me__head{margin-bottom:28px}
+.admin .card,.admin .bill-hero,.admin .bill-card{background:#fff;border:1px solid var(--a-line);border-radius:16px;box-shadow:var(--a-shadow)}
+.admin .card{padding:22px 24px;margin-bottom:16px}
+.admin .card h2{font-size:15px;font-weight:650;color:var(--a-ink);letter-spacing:-.005em}
+.admin .row{padding:14px 0;border-bottom:1px solid var(--a-line-2)}
+.admin .row__n{font-size:14px;color:var(--a-ink)}
+.admin .row__e{font-size:12.5px;color:var(--a-mute)}
+.admin .badge{font-size:11.5px;padding:4px 10px;background:#E6EFF8;color:var(--a-blue-d)}
+.admin .badge--wait{background:#FBEFD9;color:#8A5A12}
+.admin .badge--off{background:#FBE6EB;color:#A32E48}
+.admin .linkbox{background:#F4F7FB;border:1px solid var(--a-line);border-radius:12px}
+.admin .msg{border-radius:12px;font-size:13px}
+.admin .hint{font-size:12.5px}
+.admin .me textarea{border-radius:12px;border-color:var(--a-line);font-size:14px}
+.admin .me .field input[type=text],.admin .me .field input[type=tel]{height:44px;border-radius:11px}
+.admin .logo-box{border-radius:14px;background:#F7F9FC}
+.admin .pv{background:linear-gradient(180deg,#EAF1F8,#F4F6FA);border-radius:22px}
+.admin .pv__tag{text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600}
+.admin .pv h3{font-family:var(--serif);font-weight:400;font-size:28px}
+/* abonnement */
+.admin .page-head .eyebrow{display:none}
+.admin .page-head p{font-size:14px;color:var(--a-mute);margin-top:10px}
+.admin .bill-hero{padding:24px 26px}
+.admin .bill-hero__state{font-size:12.5px}
+.admin .bill-card{padding:24px}
+.admin .bill-card.is-current{border-color:#9CC2E3;box-shadow:0 0 0 4px rgba(18,100,163,.08),var(--a-shadow)}
+.admin .bill-card h3{font-size:16px;font-weight:650;color:var(--a-ink)}
+.admin .bill-card__aud{font-size:13px}
+.admin .bill-card__price{font-family:var(--serif);font-weight:400;font-size:38px;letter-spacing:-.02em;color:var(--a-ink)}
+.admin .bill-card__price span{font-family:var(--font);font-size:13px}
+.admin .bill-card li{font-size:13px}
+.admin .bill-card__tag{text-transform:none;letter-spacing:0;font-size:11.5px;background:#E6EFF8;color:var(--a-blue-d)}
+.admin .bill-toggle button{font-size:13px}
+.admin .bill-note{font-size:12.5px}
+.admin .bill-table th{text-transform:none;letter-spacing:0;font-size:12px}
+.admin .bill-table td{font-size:13px}
+.admin .bill-sec h2{font-size:17px;color:var(--a-ink)}
+@media (max-width:860px){.admin .team,.admin .me{padding:26px 16px 70px}.admin .team h1,.admin .me h1{font-size:36px}}

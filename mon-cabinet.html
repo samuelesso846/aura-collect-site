@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mon cabinet — Aura Collect</title>
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="assets/css/aura.css">
+<link rel="preload" href="/assets/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/aura.css?v=11">
+<link rel="stylesheet" href="assets/css/app.css?v=14">
 <style>
   .me{max-width:1040px;margin:0 auto;padding:32px 20px 80px}
   .me__head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:26px}
@@ -58,14 +61,22 @@
   .pv__contact b{display:block;margin-top:6px;font-weight:600;color:var(--c)}
 </style>
 </head>
-<body>
+<body class="admin">
+<header class="admin-top">
+  <a class="brand" href="index.html">
+    <span class="brand__mark" style="width:28px;height:28px;flex:0 0 28px;font-size:13px">A</span>
+    <span>Aura Collect</span>
+  </a>
+  <div class="admin-top__right"><a class="btn btn--ghost btn--sm" href="app">Mes dossiers</a><a class="btn btn--ghost btn--sm is-current" href="mon-cabinet.html" aria-current="page">Mon cabinet</a><a class="btn btn--ghost btn--sm" href="equipe.html">Équipe</a><a class="btn btn--ghost btn--sm" href="abonnement">Abonnement</a></div>
+</header>
+
 <main class="me">
   <div class="me__head">
     <div>
       <h1>Mon cabinet</h1>
       <div class="sub">Ce que vos clients voient en ouvrant le lien que vous leur envoyez.</div>
     </div>
-    <a class="back" href="/app">← Retour à l'espace</a>
+    
   </div>
 
   <div class="msg" id="msg" role="status"></div>
