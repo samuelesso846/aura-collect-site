@@ -486,3 +486,23 @@ body.admin :focus-visible{outline:2px solid var(--a-blue);outline-offset:2px;bor
 .admin .bill-table td{font-size:13px}
 .admin .bill-sec h2{font-size:17px;color:var(--a-ink)}
 @media (max-width:860px){.admin .team,.admin .me{padding:26px 16px 70px}.admin .team h1,.admin .me h1{font-size:36px}}
+
+/* ── Pages à carte seule : invitation, nouveau mot de passe ── */
+.admin .solo{max-width:460px;margin:0 auto;padding:56px 20px 80px;min-height:100vh}
+.admin.is-solo{background:radial-gradient(70% 50% at 50% 0%,#E3EDF7 0%,var(--a-bg) 70%)}
+.admin .solo__brand{display:flex;margin-bottom:26px;font-size:15px;justify-content:center}
+.admin .solo__card{background:#fff;border:1px solid var(--a-line);border-radius:24px;padding:36px 34px 30px;box-shadow:0 40px 80px -44px rgba(11,20,36,.5)}
+.admin .solo__card h1{font-family:var(--serif);font-weight:400;font-size:34px;line-height:1.05;letter-spacing:-.02em;color:var(--a-ink);margin:0 0 10px}
+.admin .solo__card .inv__sub,.admin .solo__card .lede{font-size:14px;line-height:1.6;color:var(--a-mute);margin:0 0 22px}
+.admin .solo__card .inv__who{background:#F4F7FB;border:1px solid var(--a-line);border-radius:12px;padding:13px 15px;font-size:13px;color:var(--a-mute);margin-bottom:20px}
+.admin .solo__card .inv__who b{font-size:15px;color:var(--a-ink);margin-bottom:2px}
+.admin .solo__card .field{margin-bottom:16px}
+.admin .solo__card .btn{margin-top:6px;height:46px;font-size:14.5px}
+.admin .solo__msg{font-size:13px;padding:11px 13px;border-radius:12px;margin:0 0 16px}
+.admin .msg--err,.admin .msg.err{background:#FBE6EB;color:#A32E48;border:1px solid #F3CBD5}
+.admin .msg.ok{background:#E1F4EC;color:#0A7155;border:1px solid #BFE6D8}
+.admin .solo__card .alt{margin-top:20px;font-size:13px;color:var(--a-mute);text-align:center}
+.admin .solo__card .alt a{color:var(--a-blue);font-weight:600;text-decoration:none}
+.admin .solo__card .inv__sub:last-child{margin:18px 0 0;font-size:12.5px}
+@media (max-width:520px){.admin .solo__card{padding:28px 22px 24px}}
+.admin .msg.err,.admin .msg.ok{margin:16px 0 0}

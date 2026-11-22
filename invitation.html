@@ -5,22 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rejoindre un cabinet — Aura Collect</title>
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="assets/css/aura.css">
+<link rel="preload" href="/assets/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/aura.css?v=11">
+<link rel="stylesheet" href="assets/css/app.css?v=15">
 <style>
-  .inv{max-width:460px;margin:0 auto;padding:60px 20px 80px}
-  .inv__card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:28px}
-  .inv h1{font-size:22px;letter-spacing:-.03em;margin:0 0 8px}
-  .inv__sub{color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 20px}
-  .inv__who{background:#F7F6FF;border:1px solid #E4DEFF;border-radius:10px;padding:12px 14px;font-size:12.5px;margin-bottom:18px}
-  .inv__who b{display:block;font-size:13px;margin-bottom:2px}
-  .msg{font-size:12.5px;padding:10px 12px;border-radius:9px;display:none;margin-bottom:14px}
-  .msg.is-on{display:block}
-  .msg--err{background:#FDECEF;color:#B3253F;border:1px solid #F6CFD7}
+  .inv .msg{display:none}
+  .inv .msg.is-on{display:block}
 </style>
 </head>
-<body>
-<main class="inv">
-  <div class="inv__card">
+<body class="admin is-solo">
+<main class="inv solo">
+  <a class="brand solo__brand" href="index.html"><span class="brand__mark" style="width:28px;height:28px;flex:0 0 28px;font-size:13px">A</span><span>Aura Collect</span></a>
+  <div class="inv__card solo__card">
     <h1>Rejoindre le cabinet</h1>
     <p class="inv__sub" id="sub">Vérification de l'invitation…</p>
 
@@ -29,14 +26,14 @@
       <span id="whoEmail"></span>
     </div>
 
-    <div class="msg" id="msg"></div>
+    <div class="msg solo__msg" id="msg"></div>
 
     <form id="form" style="display:none">
-      <div class="field" style="margin-bottom:12px">
+      <div class="field">
         <label for="nom">Votre nom</label>
         <input id="nom" type="text" autocomplete="name" placeholder="Prénom et nom" required>
       </div>
-      <div class="field" style="margin-bottom:12px">
+      <div class="field">
         <label for="mdp">Choisissez votre mot de passe</label>
         <input id="mdp" type="password" autocomplete="new-password" minlength="8" placeholder="8 caractères minimum" required>
       </div>
