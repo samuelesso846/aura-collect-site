@@ -31,6 +31,10 @@
     return String(name).split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
   }
 
+  function plur(n, un, plusieurs) { return n + ' ' + (n > 1 ? plusieurs : un); }
+
+  var SEAL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/><path d="M8.8 12.2l2.2 2.2 4.2-4.4"/></svg>';
+
   function rel(iso) {
     if (!iso) return '—';
     var diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -105,20 +109,19 @@
     var aValider = ds.filter(function (d) { return d.status === 'a_valider'; }).length;
     var scelles = ds.filter(function (d) { return d.status === 'scelle'; }).length;
 
-    if (!ds.length) {
-      $('#dashSub').innerHTML = '<span class="dchip dchip--muted">Aucun dossier pour l\'instant</span>';
-      return;
-    }
+    var box = $('#dashSub');
+    if (!ds.length) { box.className = 'dash__sub'; box.innerHTML = 'Aucun dossier pour l’instant'; return; }
 
-    function chip(n, label, tone) {
-      return '<span class="dchip dchip--' + tone + '"><b>' + n + '</b> ' + label + '</span>';
+    function kpi(n, label, tone) {
+      return '<div class="kpi kpi--' + tone + (n ? '' : ' is-zero') + '"><b>' + n + '</b><span>' + label + '</span></div>';
     }
-    $('#dashSub').innerHTML = [
-      chip(ds.length, 'dossier' + (ds.length > 1 ? 's' : ''), 'total'),
-      chip(attente, 'en attente', 'attente'),
-      chip(incomplet, 'incomplet' + (incomplet > 1 ? 's' : ''), 'incomplet'),
-      chip(aValider, 'à valider', 'valider'),
-      chip(scelles, 'scellé' + (scelles > 1 ? 's' : ''), 'scelle')
+    box.className = 'kpis';
+    box.innerHTML = [
+      kpi(ds.length, ds.length > 1 ? 'dossiers' : 'dossier', 'total'),
+      kpi(attente, 'en attente', 'attente'),
+      kpi(incomplet, incomplet > 1 ? 'incomplets' : 'incomplet', 'incomplet'),
+      kpi(aValider, 'à valider', 'valider'),
+      kpi(scelles, scelles > 1 ? 'scellés' : 'scellé', 'scelle')
     ].join('');
   }
 
@@ -128,36 +131,41 @@
   }
 
   var COLONNES = [
-    { tone: 'attente', dot: '#FF9F43', label: 'En attente',
+    { tone: 'attente', label: 'En attente',
       help: 'Le lien est parti, rien n\'est encore arrivé.',
       test: function (d) { return d.status === 'attente'; } },
-    { tone: 'incomplet', dot: '#F0506E', label: 'Incomplet',
+    { tone: 'incomplet', label: 'Incomplet',
       help: 'Des pièces manquent ou sont à refaire.',
       test: function (d) { return d.status === 'incomplet'; } },
-    { tone: 'complet', dot: '#12A57C', label: 'Complet',
+    { tone: 'complet', label: 'Complet',
       help: 'Tout est reçu. À valider ou déjà scellé.',
       test: function (d) { return d.status === 'a_valider' || d.status === 'scelle'; } }
   ];
 
+  function segments(d) {
+    var tot = Math.max(d.progress.total, 1), out = '';
+    for (var i = 0; i < tot; i++) out += '<i class="' + (i < d.progress.ok ? 'on' : '') + '"></i>';
+    return '<div class="segs segs--' + d.status + '" role="img" aria-label="' + d.progress.ok + ' sur ' + d.progress.total + ' pièces validées">' + out + '</div>';
+  }
+
   function kanbanCard(d) {
-    var etat = d.status === 'scelle' ? 'scellé'
-      : d.status === 'a_valider' ? 'à valider' : '';
-    var bar = (d.status === 'scelle' || d.status === 'a_valider') ? 'is-ok'
-      : d.status === 'incomplet' ? 'is-warn' : '';
+    var etat = d.status === 'scelle' ? SEAL_ICON + 'Scellé'
+      : d.status === 'a_valider' ? 'À valider' : '';
     var relance = (d.status !== 'scelle' && d.obstacles && d.obstacles.length && peut('dossier.relancer'))
       ? '<button class="kcard__act" data-remind="' + d.id + '">Relancer</button>'
       : '';
-    return '<div class="kcard kcard--' + d.status + '" data-id="' + d.id + '">' +
+    var al = d.score && d.score.alertes
+      ? '<span class="kcard__alert" title="Points à vérifier entre les pièces">' + plur(d.score.alertes, 'alerte', 'alertes') + '</span>' : '';
+    return '<div class="kcard kcard--' + d.status + '" data-id="' + d.id + '" tabindex="0" role="button">' +
       '<div class="kcard__top">' +
-        '<span class="kcard__av">' + initials(d.clientName || d.client) + '</span>' +
-        '<span class="kcard__name">' + esc(d.clientName || d.client) + '</span>' +
+        '<span class="kcard__av">' + esc(initials(d.clientName || d.client)) + '</span>' +
+        '<span class="kcard__id"><span class="kcard__name">' + esc(d.clientName || d.client) + '</span>' +
+        '<span class="kcard__tpl">' + esc(d.templateName) + '</span></span>' +
         (etat ? '<span class="kcard__flag kcard__flag--' + d.status + '">' + etat + '</span>' : '') +
       '</div>' +
-      '<div class="kcard__tpl">' + esc(d.templateName) + '</div>' +
-      '<div class="kcard__bar ' + bar + '"><i style="width:' + d.progress.pct + '%"></i></div>' +
-      '<div class="kcard__foot"><span>' + d.progress.ok + '/' + d.progress.total + ' pièces' +
-        (d.score && d.score.alertes ? ' · <b style="color:#A5620B" title="Points à vérifier entre les pièces">⚠ ' + d.score.alertes + '</b>' : '') + '</span>' +
-        '<span>' + rel(d.lastActivity) + '</span></div>' +
+      segments(d) +
+      '<div class="kcard__foot"><span>' + d.progress.ok + ' sur ' + plur(d.progress.total, 'pièce', 'pièces') + '</span>' + al +
+        '<span class="kcard__when">' + rel(d.lastActivity) + '</span></div>' +
       relance +
     '</div>';
   }
@@ -176,7 +184,7 @@
         return new Date(b.lastActivity) - new Date(a.lastActivity);
       });
       html += '<div class="kanban__col kanban__col--' + col.tone + '">' +
-        '<div class="kanban__head"><span class="kanban__dot" style="background:' + col.dot + '"></span>' +
+        '<div class="kanban__head"><span class="kanban__dot"></span>' +
           '<span class="kanban__label">' + col.label + '</span>' +
           '<b>' + items.length + '</b></div>' +
         '<div class="kanban__body">' +
@@ -191,6 +199,11 @@
       c.addEventListener('click', function (ev) {
         if (ev.target.dataset && ev.target.dataset.remind) return;
         openDrawer(c.dataset.id);
+      });
+    });
+    $$('.kcard').forEach(function (c) {
+      c.addEventListener('keydown', function (ev) {
+        if (ev.target === c && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); openDrawer(c.dataset.id); }
       });
     });
     $$('[data-remind]').forEach(function (b) {
@@ -271,26 +284,21 @@
     var meta = p.filename
       ? esc(p.filename) + (p.dateDocument ? ' · daté du ' + esc(p.dateDocument) : '')
       : 'Règle : ' + esc(p.rule);
-    var style = accepted ? 'background:var(--green-soft);color:var(--green)'
-      : p.status === 'ko' ? 'background:var(--red-soft);color:#C4304A'
-        : p.status === 'review' ? 'background:var(--amber-soft);color:#A5620B'
-          : 'background:#F1F3F8;color:#98A0B2';
-
     var confirmBtn = '';
     if (!d.sealed && peut('piece.decider')) {
       if (p.status === 'ok' || p.status === 'review') {
-        confirmBtn =
+        confirmBtn = '<div class="piece-row__acts">' +
           '<button class="btn btn--ghost btn--xs" data-confirm="' + d.id + '|' + p.key + '">Confirmer</button>' +
-          '<button class="btn btn--ghost btn--xs" data-reject="' + d.id + '|' + p.key + '">Demander à refaire</button>';
+          '<button class="btn btn--ghost btn--xs" data-reject="' + d.id + '|' + p.key + '">Demander à refaire</button></div>';
       } else if (p.forcable) {
         /* L'IA s'est trompée de nature de document : le cabinet tranche. */
-        confirmBtn =
-          '<button class="btn btn--ghost btn--xs" data-confirm="' + d.id + '|' + p.key + '">Accepter quand même</button>';
+        confirmBtn = '<div class="piece-row__acts">' +
+          '<button class="btn btn--ghost btn--xs" data-confirm="' + d.id + '|' + p.key + '">Accepter quand même</button></div>';
       }
     }
 
     return '<div class="piece-row">' +
-      '<div class="piece-row__st" style="' + style + '">' + ico + '</div>' +
+      '<div class="piece-row__st piece-row__st--' + cls + '">' + ico + '</div>' +
       '<div><div class="piece-row__label">' + esc(p.label) + '</div>' +
         '<div class="piece-row__meta">' + meta + '</div>' +
         (p.reason && !accepted ? '<div class="piece-row__why ' + (p.status === 'review' ? 'is-review' : '') + '">' + esc(p.reason) + '</div>' : '') +
@@ -305,13 +313,15 @@
   var JOURNAL_LABELS = {
     creation: 'Dossier créé',
     depot: 'Pièce déposée',
-    verdict_ia: 'Vérification automatique',
+    verdict_ia: 'Lecture automatique',
     validation: 'Pièce validée',
     refus: 'Nouvelle version demandée',
-    forcage: 'Validation forcée',
-    scellement: 'Dossier scellé'
+    forcage: 'Acceptée par le cabinet',
+    scellement: 'Dossier scellé',
+    relation_message: 'Message au client'
   };
   var JOURNAL_ACTORS = { ia: 'IA', client: 'Client', cabinet: 'Cabinet', systeme: 'Système' };
+  var JOURNAL_TONE = { depot: 'in', verdict_ia: 'ia', validation: 'ok', forcage: 'ok', refus: 'warn', scellement: 'seal', creation: 'in', relation_message: 'msg' };
 
   async function loadJournal(id) {
     var box = $('#journalBox');
@@ -323,15 +333,15 @@
         box.textContent = 'Aucun événement enregistré pour le moment.';
         return;
       }
+      box.className = 'timeline';
       box.innerHTML = ev.map(function (e) {
         var titre = (JOURNAL_LABELS[e.action] || e.action) + (e.piece_label ? ' · ' + e.piece_label : '');
-        var quand = new Date(e.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
-        var acteur = (JOURNAL_ACTORS[e.actor_kind] || e.actor_kind) + (e.actor_email ? ' — ' + e.actor_email : '');
-        var detail = quand + ' · ' + acteur;
-        if (e.reason) detail += ' — ' + e.reason;
-        return '<div class="obstacle"><span class="obstacle__dot"></span><div>' +
-          '<div class="obstacle__t">' + esc(titre) + '</div>' +
-          '<div class="obstacle__d">' + esc(detail) + '</div>' +
+        var quand = new Date(e.created_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        var acteur = e.actor_name || JOURNAL_ACTORS[e.actor_kind] || e.actor_kind;
+        return '<div class="tl tl--' + (JOURNAL_TONE[e.action] || 'in') + '"><span class="tl__node"></span><div class="tl__body">' +
+          '<div class="tl__t">' + esc(titre) + '</div>' +
+          (e.reason ? '<div class="tl__d">' + esc(e.reason) + '</div>' : '') +
+          '<div class="tl__m">' + esc(acteur) + ' · ' + esc(quand) + '</div>' +
         '</div></div>';
       }).join('');
     } catch (err) {
@@ -355,8 +365,8 @@
     catch (e) { box.textContent = e.message; return; }
 
     if (!r.available) {
-      box.innerHTML = '<span style="color:#8A6A00">' + esc(r.reason) + '</span>' +
-        (r.historyWarning ? '<div style="margin-top:6px;color:#8A6A00">' + esc(r.historyWarning) + '</div>' : '');
+      box.innerHTML = '<div class="rel-warn">' + esc(r.reason) + '</div>' +
+        (r.historyWarning ? '<div class="rel-warn">' + esc(r.historyWarning) + '</div>' : '');
       return;
     }
 
@@ -388,8 +398,8 @@
         '</select>' +
         '<button class="btn btn--primary btn--sm" id="relOpen" type="button">Ouvrir le message</button>' +
       '</div>' +
-      '<p class="detail-note" id="relNote" style="margin-top:8px">Aucun envoi automatique : le message s’ouvre dans votre application et c’est vous qui appuyez sur envoyer.</p>' +
-      '<div class="drawer__label" style="margin-top:14px">Historique relationnel</div>' +
+      '<p class="detail-note" id="relNote">Aucun envoi automatique : le message s’ouvre dans votre application et c’est vous qui appuyez sur envoyer.</p>' +
+      '<div class="rel-histhead">Historique</div>' +
       (hist || '<div class="detail-note">Aucun message préparé pour ce dossier.</div>');
 
     var ta = $('#relBody');
@@ -479,21 +489,32 @@
     var sealed = d.sealed;
 
     $('#drawerName').textContent = d.client;
-    $('#drawerMeta').textContent = d.templateName + ' · ' + d.progress.ok + '/' + d.progress.total + ' validées' +
+    $('#drawerMeta').textContent = d.templateName + ' · ' + d.progress.ok + ' sur ' + d.progress.total + ' validées' +
       (d.recipient ? ' · ' + d.recipient : '');
 
-    var verdict = sealed
-      ? '<div class="verdict-box is-ok"><div class="verdict-box__t">Dossier scellé</div><div class="verdict-box__s">Empreinte enregistrée le ' +
-        new Date(sealed.at).toLocaleString('fr-FR') + '. Le dossier n\'accepte plus de pièce.</div></div>'
-      : obstacles.length
-        ? '<div class="verdict-box is-warn"><div class="verdict-box__t">' + obstacles.length + ' obstacle' + (obstacles.length > 1 ? 's' : '') +
-          '</div><div class="verdict-box__s">Le scellement sera possible quand toutes les pièces seront validées.</div></div>'
-        : (d.score && d.score.alertes
-          ? '<div class="verdict-box is-warn"><div class="verdict-box__t">Pièces validées, ' + d.score.alertes + ' point' + (d.score.alertes > 1 ? 's' : '') + ' à vérifier</div><div class="verdict-box__s">Contrôlez les alertes ci-dessous avant de sceller.</div></div>'
-          : '<div class="verdict-box is-ok"><div class="verdict-box__t">Prêt à sceller</div><div class="verdict-box__s">Toutes les pièces sont validées.</div></div>');
+    var nOb = obstacles.length, nAl = (d.score && d.score.alertes) || 0;
+    var canSeal = !nOb && peut('dossier.sceller');
+    var verdict;
+    if (sealed) {
+      verdict = '<div class="seal-card"><div class="seal-card__top"><span class="seal-card__ico">' + SEAL_ICON + '</span>' +
+        '<div><div class="seal-card__t">Dossier scellé</div>' +
+        '<div class="seal-card__s">Le ' + new Date(sealed.at).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) + '. Il n’accepte plus de pièce.</div></div></div>' +
+        '<div class="seal-hash" title="Empreinte SHA-256">' + esc(sealed.hash) + '</div>' +
+        '<div class="seal-card__acts"><a class="btn btn--light btn--sm" href="/api/dossiers/' + d.id + '/certificate">Certificat PDF</a>' +
+        '<button class="btn btn--sm seal-card__ghost" id="checkIntegrity">Vérifier l’intégrité</button></div>' +
+        '<div id="integrityOut" class="seal-card__out"></div></div>';
+    } else if (nOb) {
+      verdict = '<div class="banner banner--warn"><div class="banner__t">' + plur(nOb, 'pièce bloque', 'pièces bloquent') + ' le scellement</div>' +
+        '<div class="banner__s">Le dossier pourra être scellé quand toutes les pièces seront validées.</div></div>';
+    } else {
+      verdict = '<div class="banner banner--ok"><div class="banner__t">' + (nAl ? 'Pièces validées, ' + plur(nAl, 'point à vérifier', 'points à vérifier') : 'Prêt à sceller') + '</div>' +
+        '<div class="banner__s">' + (nAl ? 'Contrôlez les alertes ci-dessous avant de sceller.' : 'Toutes les pièces sont validées.') + '</div>' +
+        '<button class="btn btn--primary btn--sm" id="sealBtn"' + (canSeal ? '' : ' disabled') + '>Sceller le dossier</button>' +
+        (peut('dossier.sceller') ? '' : '<div class="banner__s">Seuls le propriétaire et les associés peuvent sceller.</div>') + '</div>';
+    }
 
     var obstacleHtml = obstacles.length
-      ? '<div class="drawer__section"><div class="drawer__label">Obstacles</div>' + obstacles.map(function (o) {
+      ? '<div class="drawer__section"><div class="drawer__label">À fournir ou à refaire</div>' + obstacles.map(function (o) {
           return '<div class="obstacle"><span class="obstacle__dot"></span><div>' +
             '<div class="obstacle__t">' + esc(o.label) + '</div>' +
             '<div class="obstacle__d">' + esc(o.reason || (o.status === 'wait' ? 'Pièce non déposée.' : 'Pièce à vérifier.')) + '</div>' +
@@ -507,36 +528,24 @@
     var ctrlHtml = ctrl.length
       ? '<div class="drawer__section"><div class="drawer__label">À vérifier entre les pièces</div>' + ctrl.map(function (c) {
           var alerte = c.niveau === 'alerte';
-          return '<div class="obstacle"><span class="obstacle__dot" style="' + (alerte ? '' : 'background:#9AA0B8') + '"></span><div>' +
-            '<div class="obstacle__d" style="color:' + (alerte ? '#8A4A06' : 'var(--muted)') + '">' + esc(c.message) + '</div>' +
+          return '<div class="obstacle"><span class="obstacle__dot' + (alerte ? ' is-alert' : ' is-info') + '"></span><div>' +
+            '<div class="obstacle__t">' + esc(c.message) + '</div>' +
             '</div></div>';
         }).join('') + '</div>'
       : '';
 
-    var sealHtml;
-    if (sealed) {
-      sealHtml = '<div class="drawer__section"><div class="drawer__label">Scellement</div>' +
-        '<div class="seal-hash">' + esc(sealed.hash) + '</div>' +
-        '<div class="detail-actions" style="margin-top:10px">' +
-          '<a class="btn btn--primary btn--sm" href="/api/dossiers/' + d.id + '/certificate">Certificat PDF</a>' +
-          '<button class="btn btn--ghost btn--sm" id="checkIntegrity">Vérifier l\'intégrité</button>' +
-        '</div><div id="integrityOut" class="detail-note"></div></div>';
-    } else {
-      sealHtml = '<div class="drawer__section"><div class="drawer__label">Scellement</div>' +
-        '<p class="detail-note" style="margin-top:0">Calcule une empreinte SHA-256 des pièces et produit un certificat PDF horodaté.</p>' +
-        '<button class="btn btn--primary btn--block btn--sm" id="sealBtn"' +
-        ((obstacles.length || !peut('dossier.sceller')) ? ' disabled style="opacity:.45;cursor:not-allowed"' : '') + '>Sceller le dossier</button>' +
-        (peut('dossier.sceller') ? '' : '<p class="detail-note">Seuls le propriétaire et les associés peuvent sceller.</p>') + '</div>';
-    }
-
     $('#drawerBody').innerHTML = verdict + obstacleHtml + ctrlHtml +
+      '<div class="drawer__section">' +
+        '<div class="drawer__label">Pièces du dossier</div>' +
+        d.pieces.map(function (p) { return pieceRow(d, p); }).join('') +
+      '</div>' +
       '<div class="drawer__section">' +
         '<div class="drawer__label">Lien client</div>' +
         '<div class="link-line"><code>' + esc(d.link) + '</code>' +
-          '<button class="btn btn--ghost btn--sm" id="copyLink" style="height:28px;padding:0 9px;font-size:10.5px">Copier</button></div>' +
+          '<button class="btn btn--ghost btn--xs" id="copyLink">Copier</button></div>' +
         '<div class="detail-actions" style="margin-top:10px">' +
           '<a class="btn btn--ghost btn--sm" href="' + esc(d.link) + '" target="_blank" rel="noopener">Ouvrir le portail</a>' +
-          '<a class="btn btn--ghost btn--sm" style="border-color:#BBE5CA;color:#0A8F7C" target="_blank" rel="noopener" href="' +
+          '<a class="btn btn--ghost btn--sm btn--wa" target="_blank" rel="noopener" href="' +
             'https://wa.me/?text=' + encodeURIComponent(waInvitation(d)) +
           '">Envoyer par WhatsApp</a>' +
           (d.obstacles.length
@@ -548,16 +557,12 @@
         '<p class="detail-note">Le ZIP contient les pièces renommées, le sommaire et, si le dossier est scellé, le certificat et le manifeste. Le lien client expire après 30 jours.</p>' +
       '</div>' +
       '<div class="drawer__section">' +
-        '<div class="drawer__label">Pièces du dossier</div>' +
-        d.pieces.map(function (p) { return pieceRow(d, p); }).join('') +
-      '</div>' +
-      '<div class="drawer__section">' +
         '<div class="drawer__label">Journal des décisions</div>' +
-        '<div id="journalBox" class="detail-note" style="margin-top:6px">Chargement…</div>' +
-      '</div>' + sealHtml +
+        '<div id="journalBox" class="detail-note">Chargement…</div>' +
+      '</div>' +
       (sealed
         ? '<div class="drawer__section"><div class="drawer__label">Relation client</div>' +
-          '<div id="relationBox" class="detail-note" style="margin-top:6px">Chargement…</div></div>'
+          '<div id="relationBox" class="detail-note">Chargement…</div></div>'
         : '');
 
     loadJournal(d.id);
@@ -594,8 +599,8 @@
         try {
           var r = await api('/api/dossiers/' + d.id + '/integrity');
           out.innerHTML = r.ok
-            ? '<span style="color:var(--green);font-weight:600">Intègre — empreinte recalculée identique.</span>'
-            : '<span style="color:#C4304A;font-weight:600">Altéré — ' +
+            ? '<span class="is-good">Intègre : l’empreinte recalculée est identique.</span>'
+            : '<span class="is-bad">Altéré : ' +
               (r.changed.length ? 'pièces modifiées : ' + esc(r.changed.join(', ')) : 'le manifeste ne correspond plus.') + '</span>';
         } catch (e) { out.textContent = e.message; }
       });
@@ -603,8 +608,7 @@
 
     $('#drawer').classList.add('is-open');
     $('#drawerOverlay').classList.add('is-open');
-    $('#drawerOverlay').style.background = 'rgba(10,14,26,.25)';
-  }
+      }
 
   function closeDrawer() {
     $('#drawer').classList.remove('is-open');
