@@ -432,6 +432,13 @@ body.admin :focus-visible{outline:2px solid var(--a-blue);outline-offset:2px;bor
 .admin .drawer{box-shadow:none}
 .admin .drawer.is-open{box-shadow:-40px 0 90px -40px rgba(11,20,36,.55)}
 .admin .page-head .btn{align-self:flex-start;margin-top:4px}
+.admin .kpis .kpi{background:transparent;border:0;border-radius:0;box-shadow:none;margin:0;min-width:0}
+.admin .kpis .kpi+.kpi{border-left:1px solid var(--a-line-2)}
+.admin .plan-banner{display:flex;align-items:center;gap:18px;justify-content:space-between;flex-wrap:wrap;border-radius:14px;padding:14px 18px;margin-bottom:12px;border:1px solid}
+.admin .plan-banner b{display:block;font-size:14px;color:var(--a-ink)}
+.admin .plan-banner span{display:block;font-size:13px;color:var(--a-text);margin-top:2px}
+.admin .plan-banner--info{background:#EDF4FA;border-color:#D3E2F0}
+.admin .plan-banner--warn{background:#FFF8EA;border-color:#F2E2BE}
 .admin .kpis{box-shadow:none}
 .admin .admin-top .brand{white-space:nowrap}
 @media (max-width:860px){

@@ -25,6 +25,7 @@
     <nav class="nav__links">
       <a href="#produit">Produit</a>
       <a href="#validation">Validation IA</a>
+      <a href="#preuve">Preuve</a>
       <a href="#modeles">Modèles</a>
       <a href="tarifs.html">Tarifs</a>
       <a href="contact.html">Contact</a>
@@ -422,6 +423,53 @@
   </div>
 </section>
 
+<!-- ================= PREUVE ================= -->
+<section class="section section--paper" id="preuve">
+  <div class="container">
+    <div class="center">
+      <span class="eyebrow eyebrow--center">Preuve et contrôle</span>
+      <h2 class="title">Un dossier <em>qu'on peut défendre</em>.</h2>
+      <p class="lede">Collecter ne suffit pas. Quand un client, un confrère ou une administration demande « qu'avez-vous reçu, et quand ? », vous répondez en une page.</p>
+    </div>
+    <div class="pillars">
+      <article class="pillar reveal">
+        <span class="pillar__num">SCELLÉ</span>
+        <div class="pillar__ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/><path d="M8.8 12.2l2.2 2.2 4.2-4.4"/></svg></div>
+        <h3>Le dossier scellé</h3>
+        <p>Quand toutes les pièces sont validées, un associé scelle le dossier. Il ne peut plus changer sans que cela se voie.</p>
+        <ul class="pillar__list">
+          <li>Empreinte SHA-256 de chaque pièce</li>
+          <li>Certificat PDF daté, avec l'historique des décisions</li>
+          <li>« Vérifier l'intégrité » en un clic</li>
+        </ul>
+      </article>
+      <article class="pillar reveal">
+        <span class="pillar__num">CONTRÔLÉ</span>
+        <div class="pillar__ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="16" rx="1.5"/><path d="M6 9h2M6 13h2M16 9h2M16 13h2"/></svg></div>
+        <h3>Les pièces se contrôlent entre elles</h3>
+        <p>Une pièce peut être valable seule et poser problème avec les autres. Aura Collect les compare pour vous.</p>
+        <ul class="pillar__list">
+          <li>Nom différent d'une pièce à l'autre</li>
+          <li>Pièce expirée, ou qui expire dans moins de 30 jours</li>
+          <li>Même fichier déposé deux fois</li>
+        </ul>
+      </article>
+      <article class="pillar reveal">
+        <span class="pillar__num">MAÎTRISÉ</span>
+        <div class="pillar__ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3.2 3.2 0 010 5.6M18 14.8c1.8.7 3 2.4 3 5.2"/></svg></div>
+        <h3>L'équipe garde la main</h3>
+        <p>L'IA signale, votre cabinet décide. Chaque geste est consigné avec le nom de la personne qui l'a fait.</p>
+        <ul class="pillar__list">
+          <li>Quatre rôles : seuls propriétaire et associés scellent</li>
+          <li>Journal des décisions en ajout seul</li>
+          <li>Aucun message client envoyé sans vous</li>
+        </ul>
+      </article>
+    </div>
+    <p class="center" style="max-width:640px;margin:26px auto 0;font-size:13px;color:#6B7189;line-height:1.6">Le certificat atteste l'intégrité et la traçabilité du dossier. Il ne remplace pas votre jugement professionnel et n'atteste pas, à lui seul, la conformité réglementaire.</p>
+  </div>
+</section>
+
 <!-- ================= MODELS ================= -->
 <section class="section" id="modeles">
   <div class="container">
@@ -485,7 +533,7 @@
     <p class="lede">Sans engagement. Essai gratuit de 7 jours, sans carte bancaire, avec vérification IA complète.</p>
     <div class="switch" id="billingSwitch">
       <button class="is-active" data-billing="monthly">Mensuel</button>
-      <button data-billing="yearly">Annuel <small>−20 %</small></button>
+      <button data-billing="yearly">Annuel <small>2 mois offerts</small></button>
     </div>
 
     <div class="plans" style="text-align:left">
@@ -495,11 +543,12 @@
         <div class="plan__price"><span class="plan__amount" data-monthly="20000" data-yearly="17000">20 000</span><span class="plan__cur">FCFA</span><span class="plan__period">/ mois</span></div>
         <div class="plan__note" data-note></div>
         <ul class="plan__list">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>20 dossiers actifs · 1 utilisateur</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>3 modèles de pièces</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Portail client &amp; lien magique</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Export ZIP renommé</li>
-                  </ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>20 dossiers par mois · 1 utilisateur</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Les 12 modèles de pièces, ou sur mesure</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Portail client sans compte, par lien WhatsApp</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Vérification IA et contrôles entre pièces</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Dossier scellé, certificat PDF, export ZIP</li>
+        </ul>
         <a class="btn btn--ghost btn--block" href="commander.html?plan=starter">Commencer</a>
       </div>
 
@@ -510,10 +559,11 @@
         <div class="plan__price"><span class="plan__amount" data-monthly="55000" data-yearly="46000">55 000</span><span class="plan__cur">FCFA</span><span class="plan__period">/ mois</span></div>
         <div class="plan__note" data-note></div>
         <ul class="plan__list">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>150 dossiers actifs · 5 utilisateurs</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Modèles illimités + sur-mesure</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Validation IA instantanée</li>
-                    <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Export ZIP + sommaire PDF</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>150 dossiers par mois · 5 utilisateurs</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Tout Starter, avec plus de volume</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Équipe : associés, collaborateurs, lecture seule</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Message de fin de dossier préparé pour le client</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Installation guidée de vos modèles</li>
         </ul>
         <a class="btn btn--primary btn--block" href="commander.html?plan=pro">Choisir Pro</a>
       </div>
@@ -524,10 +574,11 @@
         <div class="plan__price"><span class="plan__amount" data-monthly="130000" data-yearly="108000">130 000</span><span class="plan__cur">FCFA</span><span class="plan__period">/ mois</span></div>
         <div class="plan__note" data-note></div>
         <ul class="plan__list">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Tout le plan Pro</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Utilisateurs illimités · 800 dossiers</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Tout Pro, avec plus de volume</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>800 dossiers par mois · utilisateurs illimités</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Domaine personnalisé, mis en place avec nous</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Installation de vos modèles incluse</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Accompagnement dédié</li>
         </ul>
         <a class="btn btn--ghost btn--block" href="commander.html?plan=cabinet">Souscrire</a>
       </div>
@@ -565,7 +616,15 @@
         <summary>Mes clients doivent-ils créer un compte ?</summary>
         <p>Non. Ils reçoivent un lien, ils cliquent, ils déposent. Aucun mot de passe, aucune application à installer.</p>
       </details>
+            <details>
+        <summary>Le certificat a-t-il une valeur juridique ?</summary>
+        <p>Il prouve que le dossier n'a pas changé depuis sa date de scellement et retrace chaque décision : qui, quand, pourquoi. C'est une preuve d'intégrité et de traçabilité. Sa portée devant une autorité dépend des règles de votre pays : faites-le valider par votre conseil avant de vous en prévaloir.</p>
+      </details>
       <details>
+        <summary>Comment se passe le paiement ?</summary>
+        <p>Par Mobile Money ou par carte bancaire, en FCFA. Vous payez la période choisie, sans prélèvement automatique : vous décidez à chaque échéance.</p>
+      </details>
+<details>
         <summary>Est-ce que cela remplace mon logiciel de production ?</summary>
         <p>Non, et ce n'est pas l'objectif. Aura Collect s'arrête à la frontière du dossier complet : il produit une archive propre, renommée et classée, que vous importez dans votre outil habituel. Nous ne touchons ni à votre comptabilité, ni à vos statuts.</p>
       </details>

@@ -102,7 +102,39 @@
   }
 
   /* ---------- rendu ---------- */
+  /* Bandeau d'abonnement : le cabinet voit où il en est avant d'être bloqué. */
+  function renderPlanBanner() {
+    var box = $('#planBanner');
+    if (!box) return;
+    var me = state.me || {}, a = me.access;
+    if (!a) { box.innerHTML = ''; return; }
+    var u = me.usage && me.usage.dossiers, max = a.limits && a.limits.dossiers;
+    var msgs = [];
+    var jours = function (n) { return plur(n, 'jour', 'jours'); };
+    var debut = peut('cabinet.regler') ? '<a class="btn btn--primary btn--sm" href="abonnement">' : '';
+    var fin = debut ? '</a>' : '';
+    if (a.state === 'trialing') {
+      msgs.push({ tone: 'info', t: 'Essai gratuit : ' + (a.daysLeft > 0 ? jours(a.daysLeft) + (a.daysLeft > 1 ? ' restants' : ' restant') : 'dernier jour'),
+        s: 'Tout est actif. Choisissez votre offre quand vous êtes prêt : aucun prélèvement automatique.', cta: debut && debut + 'Choisir mon offre' + fin });
+    } else if (a.state === 'grace') {
+      msgs.push({ tone: 'warn', t: 'Votre abonnement est arrivé à échéance', s: 'Vous gardez l’accès quelques jours pour renouveler, sans perdre vos dossiers.', cta: debut && debut + 'Renouveler' + fin });
+    } else if (a.state === 'suspended') {
+      msgs.push({ tone: 'warn', t: 'Abonnement inactif', s: 'Vos dossiers restent consultables. Réactivez l’abonnement pour créer de nouvelles demandes.', cta: debut && debut + 'Réactiver' + fin });
+    } else if (a.planStatus !== 'trialing' && a.daysLeft > 0 && a.daysLeft <= 7) {
+      msgs.push({ tone: 'info', t: 'Votre abonnement se termine dans ' + jours(a.daysLeft), s: 'Renouvelez dès maintenant pour ne pas être interrompu.', cta: debut && debut + 'Renouveler' + fin });
+    }
+    if (typeof u === 'number' && max && u >= Math.ceil(max * 0.8)) {
+      msgs.push({ tone: u >= max ? 'warn' : 'info', t: u >= max ? 'Limite de dossiers atteinte' : 'Vous approchez de votre limite',
+        s: u + ' sur ' + max + ' dossiers créés ces 30 derniers jours. ' + (u >= max ? 'Passez à l’offre supérieure pour en créer d’autres.' : 'Pensez à l’offre supérieure si le rythme continue.'),
+        cta: debut && debut + 'Voir les offres' + fin });
+    }
+    box.innerHTML = msgs.map(function (m) {
+      return '<div class="plan-banner plan-banner--' + m.tone + '"><div><b>' + m.t + '</b><span>' + m.s + '</span></div>' + (m.cta || '') + '</div>';
+    }).join('');
+  }
+
   function renderStats() {
+    renderPlanBanner();
     var ds = state.dossiers;
     var attente = ds.filter(function (d) { return d.status === 'attente'; }).length;
     var incomplet = ds.filter(function (d) { return d.status === 'incomplet'; }).length;

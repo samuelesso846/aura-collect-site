@@ -45,12 +45,29 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(require('./lib/observe').requestLogger({ quiet: (req) => req.path === '/api/health' || /^\/assets\//.test(req.path) }));
 
-/* En-têtes de sécurité sur toutes les réponses. Pas de CSP ici : les pages utilisent des
-   scripts et styles en ligne, une CSP stricte les casserait sans test navigateur. */
+/* En-têtes de sécurité sur toutes les réponses.
+   La CSP reste volontairement souple sur les scripts et styles en ligne (les pages en
+   contiennent), mais ferme le reste : aucune ressource tierce, aucun objet, aucune
+   intégration dans un autre site, pas de <base> détourné. Vérifiée en navigateur sur
+   toutes les pages (aucune violation). Les réponses qui posent leur propre CSP la gardent. */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "media-src 'self' blob:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'self'"
+].join('; ');
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
+  res.setHeader('Content-Security-Policy', CSP);
   if (process.env.NODE_ENV === 'production') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
   next();
 });
@@ -617,6 +634,7 @@ app.get('/api/me', async (req, res) => {
   let cabinet = null;
   let access = null;
   let user = null;
+  let usage = null;
   if (session) {
     try {
       cabinet = await billing.findById(session.cabinetId);
@@ -625,6 +643,7 @@ app.get('/api/me', async (req, res) => {
       cabinet = await billing.startTrialIfMissing(cabinet);
       if (cabinet) access = billing.accessOf(cabinet);
       if (session.userId) user = await store.getUser(session.userId, session.cabinetId);
+      if (cabinet) usage = await store.countDossiers(session.cabinetId);
     } catch (err) { console.error('[me] cabinet:', err.message); }
   }
 
@@ -635,6 +654,7 @@ app.get('/api/me', async (req, res) => {
     role: session ? (user ? droits.normaliser(user.role) : 'owner') : null,
     droits: session ? droits.DROITS_DE(user ? user.role : 'owner') : [],
     access,
+    usage: usage === null ? null : { dossiers: usage },
     ai: ai.status(),
     mail: mail.mode(),
     db: db ? 'supabase' : 'down'
