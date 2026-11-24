@@ -1402,15 +1402,15 @@ app.post('/api/contact', async (req, res) => {
   }
 });
 
-/* Création de compte public : le cabinet choisit son offre, paie, puis son espace s'ouvre.
-   Aucun accès n'est accordé avant la confirmation du paiement par FedaPay. */
+/* Création de compte public : essai de 7 jours, sans paiement ni carte.
+   L'offre (Starter, Pro, Cabinet) se choisit plus tard, à l'abonnement. */
 app.post('/api/signup', async (req, res, next) => {
   // Création d'un espace en essai : aucun paiement demandé, aucune carte.
   // Le cabinet travaille 7 jours, puis s'abonne depuis son espace s'il est convaincu.
   const isForm = Boolean(req.is('application/x-www-form-urlencoded'));
-  const planWanted = String((req.body && req.body.plan) || 'starter').toLowerCase();
+  const planWanted = 'starter'; // volume de l'essai ; l'offre se choisit à l'abonnement
   const fail = (code, message, status) => {
-    if (isForm) return res.redirect(303, `/commander.html?erreur=${code}&plan=${encodeURIComponent(planWanted)}`);
+    if (isForm) return res.redirect(303, `/commander.html?erreur=${code}`);
     return res.status(status || 400).json({ error: message });
   };
 
@@ -1464,7 +1464,7 @@ app.post('/api/signup', async (req, res, next) => {
         (err.code === '23505' && /email/i.test(String(err.constraint || '') + ' ' + String(err.detail || '')))) {
       return fail('existe', 'Un compte existe déjà avec cette adresse. Connectez-vous depuis l’espace cabinet.', 409);
     }
-    if (isForm) return res.redirect(303, `/commander.html?erreur=technique&plan=${encodeURIComponent(planWanted)}`);
+    if (isForm) return res.redirect(303, '/commander.html?erreur=technique');
     next(err);
   }
 });
@@ -1494,7 +1494,8 @@ app.post('/api/billing/checkout', requireAuth, droit('cabinet.regler'), async (r
 
     const cabinet = await billing.findById(req.cabinetId);
     if (!cabinet) return res.status(401).json({ error: 'Session invalide.' });
-    const email = cabinet.email || process.env.CABINET_EMAIL || '';
+    /* Jamais d'email de repli : le paiement est toujours au nom du cabinet qui paie. */
+    const email = cabinet.email || '';
     if (!email) return res.status(400).json({ error: 'Renseignez l’email de facturation du cabinet avant de souscrire.' });
 
     const payment = await billing.createPayment({ cabinetId: cabinet.id, plan: planId, months, amount });
@@ -2006,6 +2007,49 @@ app.post('/api/portal/:token/pieces/:key', upload.single('file'), async (req, re
 /* La page de dépôt est servie avec les balises d'aperçu du cabinet (nom, mot d'accueil,
    logo) : WhatsApp les lit au moment où le cabinet colle le lien. Lien inconnu ou expiré :
    page neutre, aucune information du cabinet. */
+/* ---------- démonstration pour les cabinets prospects ----------
+   /demo crée un dossier neuf dans un cabinet « Exemple » (sans email : aucune notification)
+   et renvoie vers la vraie page de dépôt. Chaque visiteur a son propre dossier. */
+const DEMO_SLUG = 'aura-demo';
+let demoCabinetId = null;
+
+async function demoCabinet() {
+  if (demoCabinetId) return demoCabinetId;
+  const found = await store.pool.query('select id from aura.cabinets where slug = $1', [DEMO_SLUG]);
+  if (found.rows[0]) { demoCabinetId = found.rows[0].id; return demoCabinetId; }
+  const ins = await store.pool.query(
+    `insert into aura.cabinets (name, slug, email, plan, plan_status, trial_ends_at)
+     values ('Cabinet Exemple', $1, null, 'starter', 'active', null)
+     on conflict (slug) do update set slug = excluded.slug returning id`, [DEMO_SLUG]);
+  demoCabinetId = ins.rows[0].id;
+  return demoCabinetId;
+}
+
+async function isDemoCabinet(cabinetId) {
+  try { return !!cabinetId && cabinetId === await demoCabinet(); } catch (e) { return false; }
+}
+
+app.get('/demo', async (req, res) => {
+  try {
+    if (!uploadAllowed('demo|' + (req.ip || 'x'), 20, 3600 * 1000)) {
+      return res.status(429).send('Trop d’essais. Réessayez dans quelques minutes.');
+    }
+    const cabinetId = await demoCabinet();
+    const clientRow = await store.ensureClient(cabinetId, { name: 'Client Exemple', email: 'client@exemple.invalid', phone: '' });
+    const dossier = store.createDossier({
+      client: 'Client Exemple', email: 'client@exemple.invalid', template: 'bilan',
+      recipient: '', clientId: clientRow.id
+    });
+    dossier.cabinetId = cabinetId;
+    await store.insertDossier(dossier);
+    res.setHeader('Cache-Control', 'no-store');
+    res.redirect(302, '/p/' + dossier.token);
+  } catch (err) {
+    console.error('[demo]', err.message);
+    res.status(500).send('La démonstration est indisponible pour le moment.');
+  }
+});
+
 let portalHtml = null;
 app.get('/p/:token', async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');

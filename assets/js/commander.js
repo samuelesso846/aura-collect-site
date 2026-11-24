@@ -7,9 +7,6 @@
 
 const $ = (id) => document.getElementById(id);
 
-let PLANS = [];
-let SELECTED = 'starter';
-
 const ERREURS = {
   nom: 'Indiquez le nom de votre cabinet.',
   email: 'Cette adresse email n’est pas valide.',
@@ -21,31 +18,8 @@ const ERREURS = {
   technique: 'Une erreur est survenue de notre côté. Réessayez dans un instant.'
 };
 
-/* Aucun prix sur le formulaire de création de compte : on ne montre que le
-   volume de chaque offre. Le tarif se découvre dans l'espace, au moment de
-   s'abonner. Ne pas réintroduire `plan.price` ici. */
-function renderPlans() {
-  const box = $('planChoice');
-  box.innerHTML = '';
-  for (const plan of PLANS) {
-    const label = document.createElement('label');
-    label.className = 'ord__opt' + (plan.id === SELECTED ? ' is-on' : '');
-    const userTxt = plan.limits.users
-      ? plan.limits.users + ' utilisateur' + (plan.limits.users > 1 ? 's' : '')
-      : 'utilisateurs illimités';
-    label.innerHTML = `
-      <input type="radio" name="plan" value="${plan.id}" ${plan.id === SELECTED ? 'checked' : ''}>
-      <span><b>${plan.label}</b><span>${plan.limits.dossiers} dossiers · ${userTxt}</span></span>`;
-    label.addEventListener('click', () => {
-      SELECTED = plan.id;
-      for (const el of box.querySelectorAll('.ord__opt')) el.classList.remove('is-on');
-      label.classList.add('is-on');
-      refresh();
-    });
-    box.appendChild(label);
-  }
-}
-
+/* Pas de choix d'offre ici : l'offre (Starter, Pro, Cabinet) et son prix se choisissent
+   dans l'espace, page « Abonnement », au moment de payer. */
 function refresh() {
   $('total').innerHTML = '7 jours <small>offerts</small>';
 }
@@ -57,21 +31,8 @@ function showError() {
   $('orderErr').classList.add('is-on');
 }
 
-async function boot() {
-  const wanted = new URLSearchParams(location.search).get('plan');
-  if (wanted) SELECTED = wanted;
-
-  try {
-    const res = await fetch('/api/billing/plans');
-    const data = await res.json();
-    PLANS = data.plans || [];
-    if (!PLANS.some((p) => p.id === SELECTED)) SELECTED = PLANS.length ? PLANS[0].id : 'starter';
-    renderPlans();
-    refresh();
-  } catch (ex) {
-    $('orderErr').textContent = 'Impossible de charger les offres. Rechargez la page.';
-    $('orderErr').classList.add('is-on');
-  }
+function boot() {
+  refresh();
   showError();
 }
 
