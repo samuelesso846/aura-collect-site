@@ -3,7 +3,7 @@
    Modifiable sans redéploiement de code : chaque prix peut être surchargé par variable d'environnement. */
 
 const DEFAULTS = {
-  starter: { price: 20000,  annual: 200000,  users: 1, dossiers: 20,  label: 'Starter',  audience: 'Cabinet individuel' },
+  starter: { price: 20000,  annual: 200000,  users: 1, dossiers: 50,  label: 'Starter',  audience: 'Cabinet individuel' },
   pro:     { price: 55000,  annual: 550000,  users: 5, dossiers: 150, label: 'Pro',      audience: 'Cabinet de 2 à 5 personnes' },
   cabinet: { price: 130000, annual: 1300000, users: 0, dossiers: 800, label: 'Cabinet', audience: 'Structure multi-sites' }
 };

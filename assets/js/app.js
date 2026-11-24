@@ -125,7 +125,7 @@
     }
     if (typeof u === 'number' && max && u >= Math.ceil(max * 0.8)) {
       msgs.push({ tone: u >= max ? 'warn' : 'info', t: u >= max ? 'Limite de dossiers atteinte' : 'Vous approchez de votre limite',
-        s: u + ' sur ' + max + ' dossiers créés ces 30 derniers jours. ' + (u >= max ? 'Passez à l’offre supérieure pour en créer d’autres.' : 'Pensez à l’offre supérieure si le rythme continue.'),
+        s: u + ' sur ' + max + ' demandes créées ces 30 derniers jours (le nombre de clients n’est pas limité). ' + (u >= max ? 'Passez à l’offre supérieure pour en créer d’autres.' : 'Pensez à l’offre supérieure si le rythme continue.'),
         cta: debut && debut + 'Voir les offres' + fin });
     }
     box.innerHTML = msgs.map(function (m) {

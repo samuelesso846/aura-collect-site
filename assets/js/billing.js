@@ -65,7 +65,8 @@ function renderPlans() {
       ${monthly ? `<p class="bill-card__aud" style="min-height:0;margin-top:4px">soit ${money(monthly)} par mois</p>` : ''}
       <ul>
         <li>${plan.limits.users ? plan.limits.users + ' utilisateurs' : 'Utilisateurs illimités'}</li>
-        <li>${fmt.format(plan.limits.dossiers)} dossiers par mois</li>
+        <li>${fmt.format(plan.limits.dossiers)} nouvelles demandes par mois</li>
+        <li>Clients illimités</li>
         <li>Portail client et partage WhatsApp</li>
         <li>Vérification IA et dossier scellé</li>
       </ul>
